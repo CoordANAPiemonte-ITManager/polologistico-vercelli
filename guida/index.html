@@ -292,7 +292,10 @@ const conQuery = h => (location.search || "") + "#" + h;
 if (MISURA){
   const a = document.getElementById("avviso-misura");
   a.hidden = false;
-  a.innerHTML = `<div><i class="ti ti-filter"></i>Stai vedendo una guida su misura${PROFILO==="base"?" per utenti con permesso base":PROFILO==="completo"?" per utenti con permesso completo":""}. <a href="${location.pathname}">Mostra la guida completa</a></div>`;
+  // chi riceve una guida su misura vede solo le pagine scelte: niente link alla guida completa
+  // né il pulsante per comporne un'altra
+  a.innerHTML = `<div><i class="ti ti-filter"></i>Guida preparata per te${PROFILO==="base"?" (permesso base)":PROFILO==="completo"?" (permesso completo)":""}: contiene solo le sezioni che ti servono.</div>`;
+  document.getElementById("b-misura").style.display = "none";
 }
 
 /* ---------- copertina ---------- */
