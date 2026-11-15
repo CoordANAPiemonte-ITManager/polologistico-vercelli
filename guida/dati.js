@@ -11,7 +11,7 @@
 
 const SIDEBAR = [
   ["home","ti-home","Home"],["automezzi","ti-truck","Automezzi"],["tlc","ti-radio","TLC / Radio"],
-  ["formazione","ti-school","Scuola di Formazione"],["volontari","ti-users","Volontari"],
+  ["formazione","ti-school","Scuola di Formazione"],["volontari","ti-users","Formazione Volontari"],
   ["firma","ti-signature","Firma Documenti"],
   ["editorpdf","ti-file-pencil","Editor PDF"],["libromatricola","ti-book","Libro Matricola"],
   ["esercitazioni","ti-flag","Esercitazioni"],["emergenze","ti-alert-triangle","Emergenze"],
@@ -217,12 +217,12 @@ const PAGINE = [
   ]
 },
 {
-  id:"volontari", titolo:"Volontari", icona:"ti-users",
+  id:"volontari", titolo:"Formazione Volontari", icona:"ti-users",
   perche:"L'anagrafica dei volontari del 1° Raggruppamento, presa dal PIA, con i corsi e le abilitazioni di ognuno.",
   chi:"Per ora solo gli amministratori.",
   video:"", audio:"",
-  intro:"Passiamo ai Volontari. Qui c'è l'elenco dei volontari del primo Raggruppamento, cioè Piemonte, Liguria e Valle d'Aosta, preso dal PIA. E per ognuno vediamo a colpo d'occhio quali corsi e abilitazioni ha.",
-  schermo: () => app("volontari","Volontari", `
+  intro:"Passiamo alla Formazione Volontari. Qui c'è l'elenco dei volontari del primo Raggruppamento, cioè Piemonte, Liguria e Valle d'Aosta, preso dal PIA. E per ognuno vediamo a colpo d'occhio quali corsi e abilitazioni ha.",
+  schermo: () => app("volontari","Formazione Volontari", `
     <div class="m-barra" data-h="ambito">${btn("CAP","","grigio")}${btn("CAL","","grigio")}${btn("1° RGPT","")}</div>
     <div class="m-barra" data-h="filtri">${cerca("Cerca per nome o codice fiscale…")}${sel("Regione: Tutte")}${sel("Sezione: Tutte")}${sel("Attivo")}${btn("Corsi e abilitazioni","","grigio")}${btn("Azzera filtri","","grigio")}</div>
     <div class="m-barra">${tabs(["Elenco","Riepilogo","Richieste alle Sezioni","Da validare (3)"],"schede")}<span class="m-sp"></span>${btn("Esporta Excel","excel","grigio")}${btn("Importa da PIA","importa")}${btn("⚙ Corsi e abilitazioni","requisiti","scuro")}</div>
@@ -245,7 +245,7 @@ const PAGINE = [
      v:"Per aggiornare l'elenco si passa dal PIA. Nella finestra Importa da PIA trovi il pulsante Copia da PIA: lo trascini una volta nella barra dei preferiti. Poi nel PIA apri le schede volontari, filtri il primo Raggruppamento con tutte le righe, clicchi il preferito, torni qui e incolli. Prima di salvare vedi un'anteprima: chi è nuovo, chi è cambiato, e chi non c'è più. Chi non c'è più non viene cancellato: diventa Non in PIA."},
     {t:"Corsi e abilitazioni", d:"Con l'ingranaggio decidi quali colonne mostrare e quanto valgono. Per i corsi che si rinnovano (es. 12 ore e Caposquadra) spunta «aggiornamento», indica la validità dell'aggiornamento e il corso di aggiornamento della Scuola. Il preavviso dice da quanti giorni prima la cella diventa gialla.", h:"requisiti", solo:"completo",
      v:"Con l'ingranaggio decidi quali corsi e abilitazioni seguire, e quanti mesi valgono. Per quelli che, quando scadono, si rinnovano con un aggiornamento, come il dodici ore e il caposquadra, spunti aggiornamento e colleghi il corso di aggiornamento della Scuola: così anche quegli attestati arrivano da soli. Il preavviso dice quanti giorni prima della scadenza la cella diventa gialla."},
-    {t:"Richieste alle Sezioni", d:"Chiedi a una Sezione di completare le date: scegli Sezione, corsi e scadenza. Con il link la Sezione compila anche da cellulare (Copia link o Invia mail); con l'Excel generi il file, lo mandi e poi lo ricarichi compilato. Puoi prorogare o revocare; il link si può ricopiare o aprire (Apri pagina) anche dopo che la Sezione ha inviato.", h:"schede", solo:"admin",
+    {t:"Richieste alle Sezioni", d:"Chiedi a una Sezione di completare le date: scegli Sezione, corsi e scadenza. Con il link la Sezione compila anche da cellulare (Copia link o Invia mail); con l'Excel generi il file, lo mandi e poi lo ricarichi compilato. Puoi prorogare o revocare; il link si può ricopiare o aprire (Apri pagina) anche dopo che la Sezione ha inviato. Con Riapri la Sezione può correggere e inviare di nuovo.", h:"schede", solo:"admin",
      v:"Le date le possono completare anche le Sezioni. Nella scheda Richieste alle Sezioni ne crei una: scegli la Sezione, i corsi da compilare e la scadenza. Puoi mandare un link, che si apre anche dal cellulare, oppure un file Excel da compilare e rimandare. Se serve, la richiesta si proroga o si revoca."},
     {t:"Da validare", d:"Quello che arriva dalle Sezioni non entra da solo: per ogni riga vedi la data attuale e quella proposta e scegli Approva o Rifiuta (con il motivo), oppure Approva tutte. Le segnalazioni si segnano come gestite. Il numero rosso nel menu dice quante righe aspettano.", h:"schede", solo:"admin",
      v:"Quello che mandano le Sezioni non entra mai da solo. Lo trovi nella scheda Da validare, con il numerino rosso anche nel menu. Per ogni riga vedi la data che abbiamo e quella proposta: approvi, oppure rifiuti scrivendo il motivo. Se è tutto a posto, Approva tutte. Le segnalazioni, tipo un volontario che manca, le leggi e le segni come gestite."}
@@ -383,14 +383,14 @@ const PAGINE = [
   intro:"Questa pagina riguarda solo l'amministratore. È dove si decide chi può entrare, e cosa può fare.",
   schermo: () => app("utenti","Gestione Utenti", `
     <div class="m-azioni"><span class="m-sp"></span>${btn("+ Nuovo utente","nuovo")}</div>
-    ${tab([["Utente","Ruolo","Moduli","Stato","Ultimo accesso",""],["Mario Rossi","Standard","TLC (base) · Volontari (completo)",tag("Attivo","v"),"12/11/2026 09:14","Modifica · Reset · Disattiva"],["Laura Bianchi","Segreteria","Esercitazioni (completo)",tag("Attivo","v"),"mai","Modifica · Reset · Disattiva"],["Paolo Verdi","Specialità","TLC (completo)",tag("Disattivato","r"),"02/10/2026 18:40","Modifica · Reset · Riattiva"]],"elenco")}
+    ${tab([["Utente","Ruolo","Moduli","Stato","Ultimo accesso",""],["Mario Rossi","Standard","TLC (base) · Formazione Volontari (completo)",tag("Attivo","v"),"12/11/2026 09:14","Modifica · Reset · Disattiva"],["Laura Bianchi","Segreteria","Esercitazioni (completo)",tag("Attivo","v"),"mai","Modifica · Reset · Disattiva"],["Paolo Verdi","Specialità","TLC (completo)",tag("Disattivato","r"),"02/10/2026 18:40","Modifica · Reset · Riattiva"]],"elenco")}
     <div class="m-modale" data-h="password"><div class="m-box-t">Password temporanea · si vede solo adesso</div>
       <div class="m-riga"><b>Kp7mTq4xRw2h</b></div>
       <div class="m-azioni">${btn("Copia","","grigio")}${btn("WhatsApp","","grigio")}${btn("Mail","","grigio")}${btn("Fatto")}</div></div>
     <div class="m-azioni">${btn("📋 Log accessi","log","scuro")}</div>`),
   passi:[
-    {t:"Nuovo utente", d:"+ Nuovo utente: nome, email, ruolo e moduli (nessuno, base o completo; per Volontari anche le Sezioni visibili). Nessuna mail parte in automatico.", h:"nuovo", solo:"admin",
-     v:"Gli utenti si creano solo da qui. Premi Nuovo utente, scrivi nome ed email, scegli il ruolo e, sezione per sezione, cosa può fare: niente, base per consultare, o completo per modificare. Per i Volontari puoi anche limitare le Sezioni che vede."},
+    {t:"Nuovo utente", d:"+ Nuovo utente: nome, email, ruolo e moduli (nessuno, base o completo; per Formazione Volontari anche le Sezioni visibili). Nessuna mail parte in automatico.", h:"nuovo", solo:"admin",
+     v:"Gli utenti si creano solo da qui. Premi Nuovo utente, scrivi nome ed email, scegli il ruolo e, sezione per sezione, cosa può fare: niente, base per consultare, o completo per modificare. Per la Formazione Volontari puoi anche limitare le Sezioni che vede."},
     {t:"La password temporanea", d:"Dopo la creazione o un reset compare la password temporanea, una sola volta: mandala con Copia, WhatsApp o Mail (messaggio già scritto con link, email, moduli e guida). Al primo accesso l'utente ne sceglie una sua.", h:"password", solo:"admin",
      v:"Appena crei l'utente, l'app ti mostra una password temporanea. Attenzione: si vede solo in quel momento. Con Copia, WhatsApp o Mail la mandi alla persona, con un messaggio già pronto che contiene il link, l'email, i moduli abilitati e la guida. Al primo accesso sarà lei a sceglierne una sua."},
     {t:"Gestire gli utenti", d:"Per ogni riga: Modifica permessi, Reset password (nuova password temporanea, l'utente viene scollegato) e Disattiva o Riattiva. Non puoi disattivare o declassare te stesso, né restare senza amministratori.", h:"elenco", solo:"admin",

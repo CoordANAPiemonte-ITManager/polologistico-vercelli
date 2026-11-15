@@ -124,7 +124,7 @@ const MENU = [
   { route: "automezzi",    label: "Automezzi",     icon: "ti-truck",       permesso: "automezzi" },
   { route: "tlc",          label: "TLC / Radio",   icon: "ti-radio",       permesso: "tlc" },
   { route: "formazione",   label: "Scuola di Formazione", icon: "ti-school", permesso: "formazione" },
-  { route: "volontari",    label: "Volontari",     icon: "ti-users",       permesso: "volontari" },
+  { route: "volontari",    label: "Formazione Volontari", icon: "ti-users",       permesso: "volontari" },
   { route: "firma",        label: "Firma Documenti", icon: "ti-signature", permesso: "firma_documenti" },
   { route: "editorpdf",    label: "Editor PDF",    icon: "ti-file-pencil", permesso: "editor_pdf" },
   { route: "libromatricola", label: "Libro Matricola", icon: "ti-book",    permesso: "libro_matricola" },
@@ -534,7 +534,7 @@ const PAGE_TITLES = {
   automezzi: ["Automezzi", "Flotta, revisioni e movimentazioni"],
   tlc: ["TLC / Radio", "Apparati e movimentazioni"],
   formazione: ["Scuola di Formazione", "Corsi e volontari"],
-  volontari: ["Volontari", "Anagrafica 1° RGPT, corsi e abilitazioni"],
+  volontari: ["Formazione Volontari", "Anagrafica 1° RGPT, corsi e abilitazioni"],
   firma: ["Firma Documenti", "Carica PDF, apponi la firma e scarica"],
   editorpdf: ["Editor PDF", "Modelli, compilazione e firme con link"],
   libromatricola: ["Libro Matricola", "Mezzi assicurati e polizze"],
@@ -2810,7 +2810,7 @@ const PAGINE_PERMESSO = [
   { key:"automezzi", label:"Automezzi" },
   { key:"tlc", label:"TLC / Radio", livelli:true },
   { key:"formazione", label:"Scuola di Formazione" },
-  { key:"volontari", label:"Volontari", livelli:true },
+  { key:"volontari", label:"Formazione Volontari", livelli:true },
   { key:"firma_documenti", label:"Firma Documenti" },
   { key:"editor_pdf", label:"Editor PDF", livelli:true },
   { key:"libro_matricola", label:"Libro Matricola" },
@@ -10863,7 +10863,7 @@ function apriModalUtente(u){
             }).join("")}
           </div>
           <div class="utenti-sezioni" id="utenti-sezioni">
-            <div class="form-field"><label>Volontari: Sezioni visibili</label>
+            <div class="form-field"><label>Formazione Volontari: Sezioni visibili</label>
               <div class="utenti-scelta">
                 <label><input type="radio" name="sez_modo" value="tutte" ${sezScelte ? "" : "checked"}> Tutte le Sezioni</label>
                 <label><input type="radio" name="sez_modo" value="alcune" ${sezScelte ? "checked" : ""}> Solo alcune</label>

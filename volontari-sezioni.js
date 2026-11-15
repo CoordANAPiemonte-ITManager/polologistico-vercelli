@@ -157,6 +157,7 @@ function volsHtmlRigaRichiesta(r){
     az.push(["proroga", "Proroga"], ["revoca", "Revoca"]);
   }
   if (r.stato === "INVIATA" && !c.IN_ATTESA) az.push(["chiudi", "Chiudi"]);
+  if (r.stato === "INVIATA" || r.stato === "CHIUSA") az.push(["riapri", "Riapri"]);
   if (r.stato !== "APERTA") az.push(["dettaglio", "Dettaglio"]);
   return `
     <tr>
@@ -205,6 +206,17 @@ async function volsAzioneRichiesta(az, ric, btn){
   if (az === "revoca"){
     if (!confirm(`Revocare la richiesta per ${ric.sezione}? ${ric.canale === "LINK" ? "Il link smetterà subito di funzionare." : "L'Excel non potrà più essere caricato."}`)) return;
     const { error } = await sb.rpc("vol_richiesta_azione", { p_id: ric.id, p_azione:"REVOCA" });
+    if (error){ alert("Errore: " + error.message); return; }
+  }
+  if (az === "riapri"){
+    const c = _vols.conteggi.get(ric.id) || {};
+    const g = prompt(
+      `Riaprire la richiesta per ${ric.sezione}?\n\n` +
+      `La Sezione ${ric.canale === "LINK" ? "potrà riaprire lo stesso link, ritroverà quanto aveva compilato e potrà correggere e inviare di nuovo" : "potrà rimandarti l'Excel e potrai ricaricarlo"}.` +
+      (c.IN_ATTESA ? `\nLe ${c.IN_ATTESA} proposte ancora da validare restano in attesa: al nuovo invio verranno sostituite.` : "") +
+      `\n\nPer quanti giorni resta aperta?`, "15");
+    if (!g) return;
+    const { error } = await sb.rpc("vol_richiesta_azione", { p_id: ric.id, p_azione:"RIAPRI", p_giorni: Number(g) });
     if (error){ alert("Errore: " + error.message); return; }
   }
   if (az === "chiudi"){

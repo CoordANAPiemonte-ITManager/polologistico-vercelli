@@ -734,7 +734,7 @@ function volRenderListaRequisiti(inModifica){
   const form = inModifica !== null ? volHtmlFormRequisito(inModifica === "nuovo" ? null : lista.find(r => r.id === inModifica)) : "";
   body.innerHTML = `
     <p style="font-size:12.5px;color:var(--grigio-600);margin-top:0;">
-      Le colonne da spuntare nella pagina Volontari. Collegando un corso della Scuola di Formazione, chi ha l'attestato risulta spuntato in automatico.
+      Le colonne da spuntare nella pagina Formazione Volontari. Collegando un corso della Scuola di Formazione, chi ha l'attestato risulta spuntato in automatico.
       Le voci non si cancellano: si disattivano (le spunte restano salvate).
     </p>
     ${form}

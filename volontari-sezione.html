@@ -183,6 +183,10 @@
     const scad = D.scadenza ? new Date(D.scadenza).toLocaleDateString("it-IT") : "";
 
     let avviso = "";
+    if (mod && D.inviata_at){
+      avviso = `<div class="messaggio msg-info"><h2>Richiesta riaperta</h2>
+        Il Polo Logistico ha riaperto la richiesta: trovi quanto avevi inviato il ${esc(dataOraIt(D.inviata_at))}. Puoi correggere o aggiungere e poi premere di nuovo <b>Invia</b>.</div>`;
+    }
     if (!mod){
       avviso = `<div class="messaggio msg-ok"><h2>Inviato, grazie!</h2>
         Inviato il ${esc(dataOraIt(D.inviata_at))}${D.compilatore_nome ? ` da ${esc(D.compilatore_nome)}${D.compilatore_ruolo ? " (" + esc(D.compilatore_ruolo) + ")" : ""}` : ""}.
