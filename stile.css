@@ -32,7 +32,7 @@ button{font-family:inherit;cursor:pointer;}
 input,select,textarea{font-family:inherit;}
 
 /* ---------- LOGIN ---------- */
-#login-screen{
+#login-screen,#cambio-pw-screen{
   position:fixed;inset:0;
   display:flex;align-items:center;justify-content:center;
   background:linear-gradient(135deg,var(--blu-900),var(--blu-500));
@@ -1014,3 +1014,32 @@ button.pe-lib-card:hover,button.pe-lib-card:focus-visible{border-color:var(--blu
 .vols-segn-t{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--grigio-600);margin:12px 0 4px;}
 .vols-ok{background:var(--verde);}
 .vols-ok:hover{background:#245f27;}
+
+/* ---------- GESTIONE UTENTI ---------- */
+#cambio-pw-screen{display:flex;}
+#cambio-pw-screen .login-box{max-width:380px;}
+.utenti-testa{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px;}
+.utenti-testa p{flex:1;min-width:240px;margin:0;font-size:12.5px;color:var(--grigio-600);}
+.utenti-wrap{overflow-x:auto;background:#fff;border:1px solid var(--grigio-200);border-radius:var(--radius);}
+.utenti-tab td{vertical-align:top;}
+.utenti-tab small{color:var(--grigio-600);}
+.utenti-moduli{font-size:12px;color:var(--grigio-800);max-width:280px;}
+.utenti-azioni{white-space:nowrap;}
+.utenti-azioni .row-del{color:var(--blu-500);margin-right:8px;}
+.utenti-azioni .row-del.utente-rosso{color:var(--rosso);}
+.utente-off td{opacity:.6;}
+.utente-tag-pw{background:var(--giallo-bg);color:var(--giallo);margin-top:4px;display:inline-block;}
+.utenti-nota{font-size:12px;color:var(--grigio-600);margin:0 0 8px;}
+.utenti-permessi{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 16px;}
+.utenti-perm{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;font-weight:500;}
+.utenti-perm select{font-size:12px;padding:4px 6px;border:1px solid var(--grigio-400);border-radius:6px;background:#fff;}
+.utenti-perm-check{justify-content:flex-start;}
+.utenti-perm-check input{width:auto;}
+.utenti-sezioni{margin-top:14px;background:var(--grigio-100);border-radius:8px;padding:10px 12px;}
+.utenti-scelta{display:flex;gap:16px;margin:4px 0;font-size:12.5px;}
+.utenti-scelta input,.utenti-sez-elenco input{width:auto;}
+.utenti-sez-elenco{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 10px;margin-top:6px;font-size:12px;}
+.pw-avviso{background:var(--giallo-bg);color:var(--giallo);border-radius:8px;padding:10px 12px;font-size:13px;}
+.pw-temp{font-family:monospace;font-size:26px;font-weight:700;letter-spacing:2px;text-align:center;color:var(--blu-900);background:var(--grigio-100);border-radius:8px;padding:14px;margin-top:12px;user-select:all;}
+.pw-messaggio{width:100%;font-size:12.5px;font-family:var(--font);padding:9px 10px;border:1px solid var(--grigio-400);border-radius:8px;resize:vertical;}
+.pw-link{text-decoration:none;display:inline-flex;align-items:center;gap:5px;}

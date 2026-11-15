@@ -50,7 +50,7 @@
     </form>
 
     <div class="login-switch">
-      <span id="link-reset">Password dimenticata?</span>
+      Password dimenticata? Chiedi all'amministratore IT di reimpostarla.
     </div>
   </div>
 </div>
@@ -276,17 +276,17 @@ async function onAuthenticated(user){
     .maybeSingle();
 
   if (error || !profile){
-    // primo accesso: nessun profilo app_users ancora collegato.
-    // Creiamo un profilo di default come 'standard' così l'IT Administrator può poi configurarlo da Impostazioni.
-    const { data: created } = await sb
-      .from("app_users")
-      .insert({ id: user.id, nome: user.email.split("@")[0], email: user.email, ruolo: "standard" })
-      .select()
-      .single();
-    state.profile = created || { nome: user.email, ruolo: "standard" };
-  } else {
-    state.profile = profile;
+    // Gli utenti li crea solo l'IT Admin (Gestione Utenti): senza profilo non si entra.
+    await sb.auth.signOut().catch(() => {});
+    state.user = null;
+    state.profile = null;
+    _passwordAccesso = null;
+    const errBox = document.getElementById("login-error");
+    errBox.textContent = "Utente non abilitato: contatta l'amministratore IT.";
+    errBox.style.display = "block";
+    return;
   }
+  state.profile = profile;
 
   if (profile && profile.attivo === false){
     await sb.auth.signOut().catch(() => {});
@@ -295,6 +295,7 @@ async function onAuthenticated(user){
     const errBox = document.getElementById("login-error");
     errBox.textContent = "Utente disattivato, contatta l'amministratore IT";
     errBox.style.display = "block";
+    _passwordAccesso = null;
     return;
   }
 
@@ -305,10 +306,82 @@ async function onAuthenticated(user){
     utente_nome: state.profile.nome || user.email
   }).then(() => {}).catch(() => {});
 
+  if (profile.deve_cambiare_password){
+    mostraCambioPasswordObbligatorio();
+    return;
+  }
+  _passwordAccesso = null;
   showApp();
 }
 
+let _passwordAccesso = null; // solo in memoria, fino al cambio password
+
+// Primo accesso / dopo un reset: finché deve_cambiare_password è true
+// si vede solo questa schermata (il router non apre nessuna pagina).
+function mostraCambioPasswordObbligatorio(){
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app-shell").classList.remove("visible");
+  let scr = document.getElementById("cambio-pw-screen");
+  if (!scr){
+    scr = document.createElement("div");
+    scr.id = "cambio-pw-screen";
+    document.body.appendChild(scr);
+  }
+  let passwordGiaCambiata = false;
+  scr.innerHTML = `
+    <div class="login-box">
+      <h1>Scegli la tua password</h1>
+      <p class="sub">Ciao ${escapeHtml((state.profile.nome || "").split(" ")[0])}, stai usando una password temporanea: prima di continuare scegline una tua.</p>
+      <div class="login-error" id="cpw-errore" style="display:none;"></div>
+      <form id="form-cpw">
+        <div class="field"><label>Nuova password (almeno 10 caratteri)</label><input type="password" id="cpw-nuova" required minlength="10" autocomplete="new-password"></div>
+        <div class="field"><label>Ripeti la nuova password</label><input type="password" id="cpw-conferma" required minlength="10" autocomplete="new-password"></div>
+        <button type="submit" class="btn" id="cpw-salva">Salva e continua</button>
+        <button type="button" class="btn btn-secondary" id="cpw-esci" style="margin-top:8px;">Esci</button>
+      </form>
+    </div>`;
+  const errBox = scr.querySelector("#cpw-errore");
+  const mostraErrore = t => { errBox.textContent = t; errBox.style.display = "block"; };
+  scr.querySelector("#cpw-esci").addEventListener("click", async () => {
+    _passwordAccesso = null;
+    await sb.auth.signOut().catch(() => {});
+    showLogin();
+  });
+  scr.querySelector("#form-cpw").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errBox.style.display = "none";
+    const nuova = scr.querySelector("#cpw-nuova").value;
+    const conferma = scr.querySelector("#cpw-conferma").value;
+    if (nuova.length < 10) return mostraErrore("La password deve avere almeno 10 caratteri.");
+    if (nuova !== conferma) return mostraErrore("Le due password non coincidono.");
+    if (_passwordAccesso && nuova === _passwordAccesso) return mostraErrore("Scegli una password diversa da quella temporanea.");
+    const btn = scr.querySelector("#cpw-salva");
+    btn.disabled = true;
+    btn.textContent = "Salvataggio…";
+    if (!passwordGiaCambiata){
+      const { error } = await sb.auth.updateUser({ password: nuova });
+      if (error){
+        btn.disabled = false; btn.textContent = "Salva e continua";
+        return mostraErrore(/different|same/i.test(error.message) ? "Scegli una password diversa da quella temporanea." : "Password non salvata: " + error.message);
+      }
+      passwordGiaCambiata = true;
+    }
+    const { error: errF } = await chiamaAdminUtenti("password_cambiata");
+    if (errF){
+      btn.disabled = false; btn.textContent = "Riprova";
+      return mostraErrore("La password è stata salvata, ma non riesco a registrarlo. Premi Riprova (non serve riscriverla diversa).");
+    }
+    state.profile.deve_cambiare_password = false;
+    _passwordAccesso = null;
+    scr.remove();
+    showApp();
+  });
+  scr.querySelector("#cpw-nuova").focus();
+}
+
 function showLogin(){
+  const cpw = document.getElementById("cambio-pw-screen");
+  if (cpw) cpw.remove();
   document.getElementById("login-screen").style.display = "flex";
   document.getElementById("app-shell").classList.remove("visible");
 }
@@ -372,29 +445,8 @@ document.getElementById("form-login").addEventListener("submit", async (e) => {
     errBox.style.display = "block";
     return;
   }
+  _passwordAccesso = password;
   await onAuthenticated(data.user);
-});
-
-document.getElementById("link-reset").addEventListener("click", async () => {
-  const email = document.getElementById("login-email").value.trim();
-  const errBox = document.getElementById("login-error");
-  const okBox = document.getElementById("login-msg-ok");
-  errBox.style.display = "none";
-  okBox.style.display = "none";
-
-  if (!email){
-    errBox.textContent = "Inserisci la tua email nel campo sopra, poi clicca di nuovo.";
-    errBox.style.display = "block";
-    return;
-  }
-  const { error } = await sb.auth.resetPasswordForEmail(email);
-  if (error){
-    errBox.textContent = "Errore nell'invio email di reset.";
-    errBox.style.display = "block";
-  } else {
-    okBox.textContent = "Email di reset inviata, controlla la posta.";
-    okBox.style.display = "block";
-  }
 });
 
 document.getElementById("btn-logout").addEventListener("click", async () => {
@@ -495,6 +547,7 @@ const PAGE_TITLES = {
 let _routerIgnoraHash = false;
 function router(){
   if (_routerIgnoraHash){ _routerIgnoraHash = false; return; }
+  if (state.profile && state.profile.deve_cambiare_password){ mostraCambioPasswordObbligatorio(); return; }
   // documento singolo dell'Editor PDF con modifiche non salvate
   if (_ed && _ed.libero && location.hash !== "#/editorpdf"){
     if (_ed.modificato && !confirm("Ci sono modifiche non salvate nel documento. Uscire comunque?")){
@@ -10660,16 +10713,45 @@ async function aggiungiSottocategoriaRadioTlc(){
   renderListaSottocategorieRadioTlc();
 }
 
+/* ---------- GESTIONE UTENTI (solo it_admin) ----------
+   Tutte le operazioni sugli account passano dalla Edge Function admin-utenti
+   (crea, modifica, reset password, disattiva/riattiva): nessuna mail, la password
+   temporanea si vede una sola volta nel pannello e non viene salvata da nessuna parte. */
+const APP_URL = "https://polologistico.coordanapiemonte.it";
+let _utentiCache = [];
+let _ultimiAccessi = new Map();
+let _sezioniVolontariUtenti = [];
+
+// Chiamata alla Edge Function admin-utenti: { data, error:{message} }
+async function chiamaAdminUtenti(azione, dati){
+  const { data, error } = await sb.functions.invoke("admin-utenti", { body: { azione, ...(dati || {}) } });
+  if (error){
+    let msg = error.message;
+    try { const j = await error.context.json(); if (j && j.errore) msg = j.errore; } catch(e){ /* risposta non JSON */ }
+    return { data:null, error:{ message: msg } };
+  }
+  if (data && data.errore) return { data:null, error:{ message: data.errore } };
+  return { data, error:null };
+}
+
 async function renderGestioneUtenti(){
   const content = document.getElementById("page-content");
-  const { data, error } = await sb.from("app_users").select("*").order("nome");
-  if (error){ content.innerHTML = `<div class="placeholder-page"><h3>Errore</h3><p>${escapeHtml(error.message)}</p></div>`; return; }
+  const [ru, rl, rs] = await Promise.all([
+    sb.from("app_users").select("id, nome, email, ruolo, attivo, permessi, deve_cambiare_password, created_at").order("nome"),
+    sb.from("log_accessi").select("utente_id, accesso_il").order("accesso_il", { ascending:false }).limit(5000),
+    sb.from("vol_sezioni").select("sezione").order("ordine")
+  ]);
+  if (ru.error){ content.innerHTML = `<div class="placeholder-page"><h3>Errore</h3><p>${escapeHtml(ru.error.message)}</p></div>`; return; }
+  _utentiCache = ru.data || [];
+  _ultimiAccessi = new Map();
+  (rl.data || []).forEach(r => { if (!_ultimiAccessi.has(r.utente_id)) _ultimiAccessi.set(r.utente_id, r.accesso_il); });
+  _sezioniVolontariUtenti = (rs.data || []).map(s => s.sezione);
 
   content.innerHTML = `
-    <div class="section-title">Utenti abilitati</div>
-    <p style="font-size:12.5px;color:var(--grigio-600);margin-top:-6px;">
-      Per aggiungere un nuovo utente: crealo prima da Supabase (Authentication &gt; Users), poi al primo accesso comparirà qui automaticamente con permessi minimi.
-    </p>
+    <div class="utenti-testa">
+      <p>Gli utenti si creano solo da qui. L'app genera una <b>password temporanea</b> da consegnare alla persona (copia, WhatsApp o mail): al primo accesso ne sceglierà una sua. Nessuna mail parte in automatico.</p>
+      <button class="btn-add-mini" id="btn-nuovo-utente">+ Nuovo utente</button>
+    </div>
     <div id="utenti-list"></div>
 
     <div class="collapse-block" style="margin-top:28px;">
@@ -10690,8 +10772,248 @@ async function renderGestioneUtenti(){
     toggleLog.querySelector(".collapse-arrow").textContent = apri ? "▴" : "▾";
     if (apri && !logCaricato){ logCaricato = true; caricaLogAccessi(); }
   });
+  document.getElementById("btn-nuovo-utente").addEventListener("click", () => apriModalUtente(null));
 
-  renderListaUtenti(data);
+  renderListaUtenti();
+}
+
+// moduli abilitati, leggibili (anche per il messaggio all'utente)
+function moduliAbilitatiUtente(ruolo, permessi){
+  if (ruolo === "it_admin") return ["tutti (IT Administrator)"];
+  const p = permessi || {};
+  return PAGINE_PERMESSO.filter(x => p[x.key] === true || p[x.key] === "base" || p[x.key] === "completo").map(x => {
+    let t = x.label + (x.livelli ? ` (${p[x.key] === "completo" ? "completo" : "base"})` : "");
+    if (x.key === "volontari" && Array.isArray(p.volontari_sezioni)) t += ` – Sezioni: ${p.volontari_sezioni.join(", ") || "nessuna"}`;
+    return t;
+  });
+}
+
+function renderListaUtenti(){
+  const wrap = document.getElementById("utenti-list");
+  if (!wrap) return;
+  if (!_utentiCache.length){ wrap.innerHTML = `<div class="storico-empty">Nessun utente.</div>`; return; }
+  wrap.innerHTML = `
+    <div class="utenti-wrap">
+      <table class="storico-table utenti-tab">
+        <thead><tr><th>Utente</th><th>Ruolo</th><th>Moduli</th><th>Stato</th><th>Ultimo accesso</th><th></th></tr></thead>
+        <tbody>${_utentiCache.map(u => {
+          const io = u.id === state.user.id;
+          const attivo = u.attivo !== false;
+          const ultimo = _ultimiAccessi.get(u.id);
+          return `
+          <tr class="${attivo ? "" : "utente-off"}">
+            <td><b>${escapeHtml(u.nome || "")}</b>${io ? ` <small>(tu)</small>` : ""}<br><small>${escapeHtml(u.email || "")}</small>
+              ${u.deve_cambiare_password ? `<br><span class="tag utente-tag-pw">Deve cambiare password</span>` : ""}</td>
+            <td>${labelRuolo(u.ruolo)}</td>
+            <td class="utenti-moduli">${moduliAbilitatiUtente(u.ruolo, u.permessi).map(escapeHtml).join("<br>") || "—"}</td>
+            <td><span class="tag" style="background:${attivo ? "var(--verde-bg)" : "var(--rosso-bg)"};color:${attivo ? "var(--verde)" : "var(--rosso)"};">${attivo ? "Attivo" : "Disattivato"}</span></td>
+            <td>${ultimo ? formatDataOraIt(ultimo) : "<small>mai</small>"}</td>
+            <td class="utenti-azioni">
+              <button class="row-del" data-modifica-utente="${u.id}">Modifica permessi</button>
+              ${io ? "" : `<button class="row-del" data-reset-utente="${u.id}">Reset password</button>
+              <button class="row-del ${attivo ? "utente-rosso" : ""}" data-stato-utente="${u.id}">${attivo ? "Disattiva" : "Riattiva"}</button>`}
+            </td>
+          </tr>`;
+        }).join("")}</tbody>
+      </table>
+    </div>`;
+  const trova = id => _utentiCache.find(x => x.id === id);
+  wrap.querySelectorAll("[data-modifica-utente]").forEach(b => b.addEventListener("click", () => apriModalUtente(trova(b.dataset.modificaUtente))));
+  wrap.querySelectorAll("[data-reset-utente]").forEach(b => b.addEventListener("click", () => resetPasswordUtente(trova(b.dataset.resetUtente), b)));
+  wrap.querySelectorAll("[data-stato-utente]").forEach(b => b.addEventListener("click", () => cambiaStatoUtente(trova(b.dataset.statoUtente), b)));
+}
+
+function apriModalUtente(u){
+  chiudiModal();
+  const nuovo = !u;
+  const io = !nuovo && u.id === state.user.id;
+  const p = (u && u.permessi) || {};
+  const sezScelte = Array.isArray(p.volontari_sezioni) ? p.volontari_sezioni : null;
+  const overlay = document.createElement("div");
+  overlay.id = "modal-overlay";
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-head"><h3>${nuovo ? "Nuovo utente" : escapeHtml(u.nome || u.email)}</h3><button class="modal-close" onclick="chiudiModal()">✕</button></div>
+      <div class="modal-body">
+        <form id="form-utente">
+          <div class="form-grid">
+            <div class="form-field"><label>Nome e cognome *</label><input name="nome" required maxlength="100" value="${escapeHtml(u?.nome || "")}"></div>
+            <div class="form-field"><label>Email *</label><input name="email" type="email" required maxlength="200" value="${escapeHtml(u?.email || "")}" ${nuovo ? "" : "disabled"}></div>
+            <div class="form-field"><label>Ruolo</label>
+              <select name="ruolo" ${io ? "disabled" : ""}>
+                ${["standard","segreteria","specialita","it_admin"].map(r => `<option value="${r}" ${(u?.ruolo || "standard") === r ? "selected" : ""}>${labelRuolo(r)}</option>`).join("")}
+              </select>
+              ${io ? `<small style="color:var(--grigio-600);">Non puoi cambiare il tuo ruolo.</small>` : ""}</div>
+          </div>
+          <div class="section-title" style="margin-top:18px;">Moduli abilitati</div>
+          <p class="utenti-nota" id="nota-admin" ${(u?.ruolo) === "it_admin" ? "" : "hidden"}>L'IT Administrator vede e modifica tutto: questi permessi contano solo se cambi ruolo.</p>
+          <div class="utenti-permessi">
+            ${PAGINE_PERMESSO.map(x => {
+              if (x.livelli){
+                const v = p[x.key] === "completo" || p[x.key] === "base" ? p[x.key] : "no";
+                return `<label class="utenti-perm"><span>${x.label}</span>
+                  <select data-perm-livello="${x.key}">
+                    <option value="no" ${v === "no" ? "selected" : ""}>Nessun accesso</option>
+                    <option value="base" ${v === "base" ? "selected" : ""}>Base (consulta)</option>
+                    <option value="completo" ${v === "completo" ? "selected" : ""}>Completo (modifica)</option>
+                  </select></label>`;
+              }
+              return `<label class="utenti-perm utenti-perm-check"><input type="checkbox" data-perm="${x.key}" ${p[x.key] ? "checked" : ""}><span>${x.label}</span></label>`;
+            }).join("")}
+          </div>
+          <div class="utenti-sezioni" id="utenti-sezioni">
+            <div class="form-field"><label>Volontari: Sezioni visibili</label>
+              <div class="utenti-scelta">
+                <label><input type="radio" name="sez_modo" value="tutte" ${sezScelte ? "" : "checked"}> Tutte le Sezioni</label>
+                <label><input type="radio" name="sez_modo" value="alcune" ${sezScelte ? "checked" : ""}> Solo alcune</label>
+              </div>
+              <div class="utenti-sez-elenco" id="utenti-sez-elenco" ${sezScelte ? "" : "hidden"}>
+                ${_sezioniVolontariUtenti.map(s => `<label><input type="checkbox" data-sez="${escapeHtml(s)}" ${sezScelte && sezScelte.includes(s) ? "checked" : ""}> ${escapeHtml(s)}</label>`).join("")}
+              </div></div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-cancel" onclick="chiudiModal()">Annulla</button>
+            <button type="submit" class="btn-save">${nuovo ? "Crea utente" : "Salva"}</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const f = overlay.querySelector("#form-utente");
+  const selVol = f.querySelector('[data-perm-livello="volontari"]');
+  const aggiornaSezioni = () => {
+    overlay.querySelector("#utenti-sezioni").hidden = !selVol || selVol.value === "no";
+    overlay.querySelector("#utenti-sez-elenco").hidden = f.sez_modo.value !== "alcune";
+  };
+  if (selVol) selVol.addEventListener("change", aggiornaSezioni);
+  f.querySelectorAll("[name=sez_modo]").forEach(r => r.addEventListener("change", aggiornaSezioni));
+  f.ruolo.addEventListener("change", () => { overlay.querySelector("#nota-admin").hidden = f.ruolo.value !== "it_admin"; });
+  aggiornaSezioni();
+
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nome = f.nome.value.trim();
+    const ruolo = f.ruolo.value;
+    // parto dai permessi attuali per non perdere chiavi senza casella
+    const permessi = { ...p };
+    PAGINE_PERMESSO.forEach(x => {
+      if (x.livelli){
+        const v = f.querySelector(`[data-perm-livello="${x.key}"]`).value;
+        permessi[x.key] = v === "no" ? false : v;
+      } else {
+        permessi[x.key] = f.querySelector(`[data-perm="${x.key}"]`).checked;
+      }
+    });
+    if (permessi.volontari && f.sez_modo.value === "alcune"){
+      permessi.volontari_sezioni = [...f.querySelectorAll("[data-sez]:checked")].map(c => c.dataset.sez);
+      if (!permessi.volontari_sezioni.length && !confirm("Nessuna Sezione scelta: l'utente non vedrà nessun volontario. Continuare?")) return;
+    } else {
+      delete permessi.volontari_sezioni;
+    }
+    if (!nome){ alert("Il nome è obbligatorio."); return; }
+    const btn = f.querySelector("button[type=submit]");
+    btn.disabled = true;
+
+    if (nuovo){
+      const email = f.email.value.trim().toLowerCase();
+      const { data, error } = await chiamaAdminUtenti("crea", { email, nome, ruolo, permessi });
+      if (error){ btn.disabled = false; alert("Errore: " + error.message); return; }
+      await renderGestioneUtenti();
+      mostraPasswordTemporanea({ nome, email, ruolo, permessi }, data.password, "creato");
+      return;
+    }
+    const { error } = await chiamaAdminUtenti("modifica", { id: u.id, nome, ruolo: io ? u.ruolo : ruolo, permessi });
+    if (error){ btn.disabled = false; alert("Errore: " + error.message); return; }
+    if (io){
+      state.profile.nome = nome;
+      state.profile.permessi = permessi;
+      document.getElementById("sidebar-user-name").textContent = nome;
+      renderSidebar();
+    }
+    chiudiModal();
+    renderGestioneUtenti();
+  });
+}
+
+async function resetPasswordUtente(u, btn){
+  if (!u) return;
+  if (!confirm(`Reimpostare la password di ${u.nome || u.email}?\n\nLa password attuale smette subito di funzionare e l'utente viene scollegato. Ti verrà mostrata una password temporanea da consegnargli.`)) return;
+  btn.disabled = true;
+  const { data, error } = await chiamaAdminUtenti("reset_password", { id: u.id });
+  btn.disabled = false;
+  if (error){ alert("Errore: " + error.message); return; }
+  await renderGestioneUtenti();
+  mostraPasswordTemporanea(u, data.password, "reset");
+}
+
+async function cambiaStatoUtente(u, btn){
+  if (!u) return;
+  const disattiva = u.attivo !== false;
+  if (disattiva && !confirm(`Disattivare ${u.nome || u.email}? Non potrà più entrare e viene scollegato subito. I suoi dati restano.`)) return;
+  btn.disabled = true;
+  const { error } = await chiamaAdminUtenti(disattiva ? "disattiva" : "riattiva", { id: u.id });
+  btn.disabled = false;
+  if (error){ alert("Errore: " + error.message); return; }
+  renderGestioneUtenti();
+}
+
+// Pannello "una sola volta" con la password temporanea
+function mostraPasswordTemporanea(u, password, tipo){
+  chiudiModal();
+  const moduli = moduliAbilitatiUtente(u.ruolo, u.permessi);
+  const nome = (u.nome || "").split(" ")[0] || u.nome || "";
+  const testo =
+`Ciao ${nome},
+${tipo === "creato" ? "ti è stato creato l'accesso all'app del Polo Logistico 1° RGPT/CAP Vercelli." : "la tua password dell'app del Polo Logistico 1° RGPT/CAP Vercelli è stata reimpostata."}
+
+Indirizzo: ${APP_URL}
+Email: ${u.email}
+Password temporanea: ${password}
+
+Al primo accesso ti verrà chiesto di sceglierne una tua.
+
+Moduli abilitati: ${moduli.join("; ") || "nessuno per ora"}
+
+Guida all'app: ${GUIDA_URL}
+Per qualsiasi problema contatta l'IT: ${state.profile.nome || ""} – ${state.user.email}`;
+  const oggetto = tipo === "creato" ? "Accesso all'app Polo Logistico" : "Nuova password temporanea – app Polo Logistico";
+
+  const overlay = document.createElement("div");
+  overlay.id = "modal-overlay";
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-head"><h3>${tipo === "creato" ? "Utente creato" : "Password reimpostata"}</h3><button class="modal-close" id="pw-chiudi-x">✕</button></div>
+      <div class="modal-body">
+        <div class="pw-avviso"><b>Si vede solo adesso.</b> Consegna la password a ${escapeHtml(u.nome || u.email)}: chiudendo questa finestra non sarà più visibile.</div>
+        <div class="pw-temp">${escapeHtml(password)}</div>
+        <label class="utenti-nota" style="display:block;margin:12px 0 4px;">Messaggio da inviare</label>
+        <textarea class="pw-messaggio" readonly rows="12">${escapeHtml(testo)}</textarea>
+        <div class="form-actions">
+          <button type="button" class="btn-cancel" id="pw-copia"><i class="ti ti-copy" aria-hidden="true"></i> Copia</button>
+          <a class="btn-cancel pw-link" href="https://wa.me/?text=${encodeURIComponent(testo)}" target="_blank" rel="noopener"><i class="ti ti-brand-whatsapp" aria-hidden="true"></i> WhatsApp</a>
+          <a class="btn-cancel pw-link" href="mailto:${encodeURIComponent(u.email)}?subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(testo)}"><i class="ti ti-mail" aria-hidden="true"></i> Mail</a>
+          <button type="button" class="btn-save" id="pw-fatto">Fatto</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  let copiata = false;
+  overlay.querySelectorAll(".pw-link").forEach(a => a.addEventListener("click", () => { copiata = true; }));
+  overlay.querySelector("#pw-copia").addEventListener("click", async (ev) => {
+    const b = ev.currentTarget;
+    try { await navigator.clipboard.writeText(testo); }
+    catch(e){ const ta = overlay.querySelector(".pw-messaggio"); ta.select(); document.execCommand("copy"); }
+    copiata = true;
+    b.innerHTML = `<i class="ti ti-check" aria-hidden="true"></i> Copiato`;
+  });
+  const chiudi = () => {
+    if (!copiata && !confirm("Non hai copiato né inviato la password. Chiudendo non potrai più vederla (dovrai fare un nuovo reset). Chiudere?")) return;
+    chiudiModal();
+  };
+  overlay.querySelector("#pw-chiudi-x").addEventListener("click", chiudi);
+  overlay.querySelector("#pw-fatto").addEventListener("click", chiudi);
 }
 
 async function caricaLogAccessi(){
@@ -10726,124 +11048,6 @@ async function caricaLogAccessi(){
       tr.dataset.utenteId, tr.dataset.accessoIl, tr.dataset.nome, data
     ));
   });
-}
-
-let _utenteEspansoId = null;
-
-function renderListaUtenti(utenti){
-  const wrap = document.getElementById("utenti-list");
-  wrap.innerHTML = utenti.map(u => {
-    const espanso = _utenteEspansoId === u.id;
-    return `
-    <div class="collapse-block" style="margin-bottom:10px;">
-      <button class="collapse-head" data-toggle-utente="${u.id}">
-        <span>${escapeHtml(u.nome)}</span>
-        <span class="tag" style="background:var(--grigio-100);color:var(--grigio-800);margin-left:8px;">${labelRuolo(u.ruolo)}</span>
-        <span class="tag" style="background:${u.attivo?"var(--verde-bg)":"var(--rosso-bg)"};color:${u.attivo?"var(--verde)":"var(--rosso)"};">${u.attivo?"Attivo":"Disattivato"}</span>
-        <span class="collapse-arrow">${espanso?"▴":"▾"}</span>
-      </button>
-      <div class="collapse-body" id="utente-body-${u.id}" style="display:${espanso?"block":"none"};">
-        <div class="form-grid">
-          <div class="form-field"><label>Nome</label><input data-field="nome" data-id="${u.id}" value="${escapeHtml(u.nome)}"></div>
-          <div class="form-field"><label>Email</label><input value="${escapeHtml(u.email)}" disabled></div>
-          <div class="form-field">
-            <label>Ruolo</label>
-            <select data-field="ruolo" data-id="${u.id}">
-              ${["it_admin","specialita","segreteria","standard"].map(r => `<option value="${r}" ${u.ruolo===r?"selected":""}>${labelRuolo(r)}</option>`).join("")}
-            </select>
-          </div>
-          <div class="form-field">
-            <label>Attivo</label>
-            <div class="form-checkbox"><input type="checkbox" data-field="attivo" data-id="${u.id}" ${u.attivo?"checked":""}><label style="margin:0;">Utente attivo</label></div>
-          </div>
-          <div class="form-field full">
-            <label>Pagine abilitate</label>
-            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;align-items:center;">
-              ${PAGINE_PERMESSO.map(p => {
-                if (p.livelli){
-                  const valoreAttuale = (u.permessi && (u.permessi[p.key] === "completo" || u.permessi[p.key] === "base")) ? u.permessi[p.key] : "no";
-                  return `
-                    <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;">
-                      ${p.label}
-                      <select data-perm-livello="${p.key}" data-id="${u.id}" style="font-size:12px;padding:3px 6px;">
-                        <option value="no" ${valoreAttuale==="no"?"selected":""}>Nessun accesso</option>
-                        <option value="base" ${valoreAttuale==="base"?"selected":""}>Base</option>
-                        <option value="completo" ${valoreAttuale==="completo"?"selected":""}>Completo</option>
-                      </select>
-                    </label>
-                  `;
-                }
-                return `
-                  <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;">
-                    <input type="checkbox" data-perm="${p.key}" data-id="${u.id}" ${u.permessi && u.permessi[p.key] ? "checked" : ""}>
-                    ${p.label}
-                  </label>
-                `;
-              }).join("")}
-            </div>
-          </div>
-        </div>
-        <div class="form-actions">
-          <button class="btn-cancel" data-reset-password="${u.id}" data-email="${escapeHtml(u.email)}">Resetta password</button>
-          <button class="btn-save" data-save="${u.id}">Salva</button>
-        </div>
-      </div>
-    </div>
-  `;
-  }).join("");
-
-  wrap.querySelectorAll('[data-toggle-utente]').forEach(btn => {
-    btn.addEventListener("click", () => {
-      const id = btn.dataset.toggleUtente;
-      _utenteEspansoId = (_utenteEspansoId === id) ? null : id;
-      renderListaUtenti(utenti);
-    });
-  });
-  wrap.querySelectorAll('[data-save]').forEach(btn => {
-    btn.addEventListener("click", () => salvaUtente(btn.dataset.save, utenti));
-  });
-  wrap.querySelectorAll('[data-reset-password]').forEach(btn => {
-    btn.addEventListener("click", () => resettaPasswordUtente(btn.dataset.email));
-  });
-}
-
-async function resettaPasswordUtente(email){
-  if (!confirm(`Inviare a ${email} un'email per reimpostare la password?`)) return;
-  const { error } = await sb.auth.resetPasswordForEmail(email);
-  if (error){ alert("Errore: " + error.message); return; }
-  alert("Email di reset password inviata.");
-}
-
-async function salvaUtente(id, utenti){
-  const nome = document.querySelector(`[data-field="nome"][data-id="${id}"]`).value.trim();
-  const ruolo = document.querySelector(`[data-field="ruolo"][data-id="${id}"]`).value;
-  const attivo = document.querySelector(`[data-field="attivo"][data-id="${id}"]`).checked;
-  // parto dai permessi attuali per non perdere chiavi senza casella (es. volontari_sezioni)
-  const utenteAttuale = (utenti || []).find(x => x.id === id);
-  const permessi = { ...((utenteAttuale && utenteAttuale.permessi) || {}) };
-  PAGINE_PERMESSO.forEach(p => {
-    if (p.livelli){
-      const valore = document.querySelector(`[data-perm-livello="${p.key}"][data-id="${id}"]`).value;
-      permessi[p.key] = valore === "no" ? false : valore;
-    } else {
-      permessi[p.key] = document.querySelector(`[data-perm="${p.key}"][data-id="${id}"]`).checked;
-    }
-  });
-
-  const { error } = await sb.from("app_users").update({ nome, ruolo, attivo, permessi }).eq("id", id);
-  if (error){ alert("Errore: " + error.message); return; }
-
-  if (id === state.user.id){
-    state.profile.nome = nome;
-    state.profile.ruolo = ruolo;
-    state.profile.permessi = permessi;
-    document.getElementById("sidebar-user-name").textContent = nome;
-    document.getElementById("sidebar-user-role").textContent = labelRuolo(ruolo);
-    renderSidebar();
-  }
-
-  alert("Utente aggiornato.");
-  renderGestioneUtenti();
 }
 
 /* ---------- LOG ATTIVITÀ PER UTENTE ---------- */

@@ -71,17 +71,19 @@ const PAGINE = [
       <img src="icon-192.png" alt=""><div class="m-login-t" data-h="indirizzo">Polo Logistico 1 RGPT/CAP</div><small>Gestionale Operativo</small>
       <div class="m-login-campo" data-h="credenziali"><label>Email</label><span>mario.rossi@email.it</span><label>Password</label><span>••••••••••</span></div>
       <span class="m-btn largo" data-h="accedi">Accedi</span>
-      <span class="m-link" data-h="dimenticata">Password dimenticata?</span>
+      <span class="m-link" data-h="dimenticata">Password dimenticata? Chiedi all'amministratore IT</span>
     </div></div>`,
   passi:[
     {t:"L'indirizzo", d:"L'app si apre dal browser su polologistico.coordanapiemonte.it, da computer o telefono.", h:"indirizzo",
      v:"L'app non si scarica da nessuno store: si apre dal browser, sia dal computer che dal telefono, all'indirizzo polologistico punto coordanapiemonte punto it."},
     {t:"Email e password", d:"Usa l'email e la password che ti ha dato l'amministratore.", h:"credenziali",
      v:"Qui scrivi la tua email e la password. Le credenziali non te le crei da solo: te le dà l'amministratore."},
-    {t:"Accedi", d:"Premi Accedi. Al primo accesso il menu può essere vuoto: vuol dire che l'amministratore deve ancora darti i permessi.", h:"accedi",
-     v:"Premi Accedi e sei dentro. Se è la prima volta e vedi il menu praticamente vuoto, non hai sbagliato niente: vuol dire solo che l'amministratore non ti ha ancora abilitato le sezioni. Avvisalo e ci pensa lui."},
-    {t:"Password dimenticata", d:"Scrivi la tua email nel campo, poi premi Password dimenticata?: ti arriva una mail per sceglierne una nuova.", h:"dimenticata",
-     v:"Se non ricordi la password, scrivi prima la tua email nel campo in alto, e solo dopo premi Password dimenticata. Ti arriva una mail con il link per sceglierne una nuova. Se non la vedi, guarda anche nella posta indesiderata."},
+    {t:"Accedi", d:"Premi Accedi. Vedi nel menu solo le sezioni che l'amministratore ti ha abilitato.", h:"accedi",
+     v:"Premi Accedi e sei dentro. Nel menu trovi solo le sezioni che l'amministratore ti ha abilitato: se te ne manca una che ti serve, chiedi a lui."},
+    {t:"Il primo accesso", d:"La prima volta entri con la password temporanea che ti ha mandato l'amministratore: l'app ti chiede subito di sceglierne una tua, di almeno 10 caratteri. Finché non lo fai non si apre nient'altro.", h:"credenziali",
+     v:"La prima volta entri con la password temporanea che ti ha mandato l'amministratore, per messaggio o per mail. Appena entri l'app ti chiede di sceglierne una tua, di almeno dieci caratteri, e di scriverla due volte. Finché non lo fai, non si apre nient'altro."},
+    {t:"Password dimenticata", d:"Chiedi all'amministratore IT di reimpostarla: ti manda una nuova password temporanea e al primo accesso ne scegli una tua.", h:"dimenticata",
+     v:"Se non ricordi la password, non c'è nessuna mail automatica: chiedi all'amministratore IT. Lui la reimposta e ti manda una nuova password temporanea; entri con quella e ne scegli subito una tua."},
     {t:"Non resti collegato", d:"Per sicurezza l'app non ricorda l'accesso: se ricarichi la pagina o la riapri, devi rientrare.", h:"accedi",
      v:"Ultima cosa, e questa è importante. Per sicurezza l'app non ti tiene collegato. Ogni volta che la riapri, e anche se ricarichi la pagina, ti chiede di nuovo email e password. Quindi, se stai compilando qualcosa, non ricaricare la pagina prima di aver salvato."},
     {t:"Sul telefono come un'app", d:"Dal menu del browser scegli Aggiungi a schermata Home: avrai l'icona del Polo come un'app normale.", h:"indirizzo",
@@ -380,18 +382,19 @@ const PAGINE = [
   video:"", audio:"",
   intro:"Questa pagina riguarda solo l'amministratore. È dove si decide chi può entrare, e cosa può fare.",
   schermo: () => app("utenti","Gestione Utenti", `
-    ${tab([["Utente","Ruolo","Permessi","Attivo"],["Mario Rossi","standard","TLC base · Scuola di Formazione completo","Sì"],["Laura Bianchi","segreteria","Esercitazioni completo","Sì"],["Paolo Verdi","specialita","TLC completo","No"]],"elenco")}
-    <div class="m-modale" data-h="permessi"><div class="m-box-t">Permessi di Mario Rossi</div>
-      <div class="m-campi"><span>Automezzi <b>—</b></span><span>TLC <b>base</b></span><span>Scuola di Formazione <b>completo</b></span><span>Volontari <b>—</b></span><span>Editor PDF <b>base</b></span></div>
-      <div class="m-azioni">${btn("Resetta password","reset","grigio")}${btn("Salva")}</div></div>
+    <div class="m-azioni"><span class="m-sp"></span>${btn("+ Nuovo utente","nuovo")}</div>
+    ${tab([["Utente","Ruolo","Moduli","Stato","Ultimo accesso",""],["Mario Rossi","Standard","TLC (base) · Volontari (completo)",tag("Attivo","v"),"12/11/2026 09:14","Modifica · Reset · Disattiva"],["Laura Bianchi","Segreteria","Esercitazioni (completo)",tag("Attivo","v"),"mai","Modifica · Reset · Disattiva"],["Paolo Verdi","Specialità","TLC (completo)",tag("Disattivato","r"),"02/10/2026 18:40","Modifica · Reset · Riattiva"]],"elenco")}
+    <div class="m-modale" data-h="password"><div class="m-box-t">Password temporanea · si vede solo adesso</div>
+      <div class="m-riga"><b>Kp7mTq4xRw2h</b></div>
+      <div class="m-azioni">${btn("Copia","","grigio")}${btn("WhatsApp","","grigio")}${btn("Mail","","grigio")}${btn("Fatto")}</div></div>
     <div class="m-azioni">${btn("📋 Log accessi","log","scuro")}</div>`),
   passi:[
-    {t:"Gli utenti", d:"Il primo accesso crea l'utente in automatico, senza permessi. Da qui lo abiliti.", h:"elenco", solo:"admin",
-     v:"Quando una persona entra per la prima volta, l'app la aggiunge da sola a questo elenco, ma senza nessun permesso. Da qui la abiliti."},
-    {t:"I permessi", d:"Per ogni sezione scegli: niente, base (consulta) o completo (modifica). L'utente vede nel menu solo le sezioni abilitate.", h:"permessi", solo:"admin",
-     v:"Per ogni sezione scegli il livello: nessuno, base per consultare, oppure completo per modificare. L'utente vedrà nel menu solo le sezioni che gli hai abilitato."},
-    {t:"Password dimenticata", d:"Resetta password manda all'utente una mail per sceglierne una nuova.", h:"reset", solo:"admin",
-     v:"Se qualcuno ha perso la password, con Resetta password gli arriva una mail per sceglierne una nuova."},
+    {t:"Nuovo utente", d:"+ Nuovo utente: nome, email, ruolo e moduli (nessuno, base o completo; per Volontari anche le Sezioni visibili). Nessuna mail parte in automatico.", h:"nuovo", solo:"admin",
+     v:"Gli utenti si creano solo da qui. Premi Nuovo utente, scrivi nome ed email, scegli il ruolo e, sezione per sezione, cosa può fare: niente, base per consultare, o completo per modificare. Per i Volontari puoi anche limitare le Sezioni che vede."},
+    {t:"La password temporanea", d:"Dopo la creazione o un reset compare la password temporanea, una sola volta: mandala con Copia, WhatsApp o Mail (messaggio già scritto con link, email, moduli e guida). Al primo accesso l'utente ne sceglie una sua.", h:"password", solo:"admin",
+     v:"Appena crei l'utente, l'app ti mostra una password temporanea. Attenzione: si vede solo in quel momento. Con Copia, WhatsApp o Mail la mandi alla persona, con un messaggio già pronto che contiene il link, l'email, i moduli abilitati e la guida. Al primo accesso sarà lei a sceglierne una sua."},
+    {t:"Gestire gli utenti", d:"Per ogni riga: Modifica permessi, Reset password (nuova password temporanea, l'utente viene scollegato) e Disattiva o Riattiva. Non puoi disattivare o declassare te stesso, né restare senza amministratori.", h:"elenco", solo:"admin",
+     v:"Nell'elenco vedi ruolo, moduli, stato e ultimo accesso di ognuno. Da ogni riga modifichi i permessi, reimposti la password se l'ha persa, oppure disattivi chi non deve più entrare: i suoi dati restano. Per sicurezza non puoi disattivare né declassare te stesso, e l'app non ti lascia mai senza un amministratore."},
     {t:"Log accessi", d:"Chi è entrato e quando.", h:"log", solo:"admin",
      v:"E nel Log accessi vedi chi è entrato, e quando."}
   ]
