@@ -433,8 +433,8 @@ const PAGINE = [
     <div class="m-box" data-h="segnalazioni"><div class="m-box-t">Segnalazioni</div><div class="m-riga">Nominativo mancante: Bianchi Luigi, gruppo Santhià</div></div>
     <div class="m-azioni"><span class="m-sp"></span>${btn("Salva bozza","bozza","grigio")}${btn("Invia","invia")}</div></div></main></div>`,
   passi:[
-    {t:"Cosa vedi", d:"I volontari attivi della tua Sezione e, per ogni corso richiesto, la situazione che risulta al Polo Logistico (valido, in scadenza, da aggiornare, scaduto, non risulta).", h:"volontario",
-     v:"Aprendo il link trovi i volontari attivi della tua Sezione. Per ognuno, e per ogni corso richiesto, vedi come risulta a noi: valido, in scadenza, da aggiornare, scaduto, oppure non risulta."},
+    {t:"Cosa vedi", d:"I volontari attivi della tua Sezione e, per ogni corso richiesto, la situazione che risulta al Polo Logistico (valido, in scadenza, da aggiornare, scaduto, non risulta). I corsi già registrati dalla Scuola di Formazione sono bloccati: non serve fare nulla.", h:"volontario",
+     v:"Aprendo il link trovi i volontari attivi della tua Sezione. Per ognuno, e per ogni corso richiesto, vedi come risulta a noi: valido, in scadenza, da aggiornare, scaduto, oppure non risulta. Se un corso l'ha fatto con la nostra Scuola di Formazione lo vedi già valido e bloccato: lì non devi fare niente."},
     {t:"Inserire le date", d:"Compila solo quello che manca o è cambiato: Data base = corso completo, Data aggiornamento = ultimo corso di aggiornamento. Le date non possono essere nel futuro.", h:"volontario",
      v:"Tu compili solo quello che manca o che è cambiato. La data base è quella del corso completo, la data aggiornamento quella dell'ultimo corso di aggiornamento, dove previsto. Usa la ricerca in alto per trovare subito una persona."},
     {t:"Note e segnalazioni", d:"Per dubbi su un volontario usa Aggiungi nota. Volontari mancanti o non più attivi scrivili in Segnalazioni: l'elenco non cambia da qui, lo aggiorna il Polo Logistico.", h:"segnalazioni",

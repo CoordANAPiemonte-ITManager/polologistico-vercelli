@@ -58,6 +58,9 @@
   .date{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
   .date label{ font-size:11.5px; font-weight:600; color:var(--grigio-600); display:block; margin-bottom:3px; }
   .date input{ width:100%; font-size:16px; padding:8px 9px; border:1px solid var(--grigio-400); border-radius:8px; font-family:var(--font); background:#fff; }
+  .date input.errata{ border-color:var(--rosso); background:var(--rosso-bg); }
+  .err-data{ color:var(--rosso); font-size:11.5px; margin-top:3px; }
+  .chip .ti{ font-size:13px; vertical-align:-1px; }
   .date input:disabled, textarea:disabled{ background:var(--grigio-100); color:var(--grigio-800); }
   textarea{ width:100%; font-size:15px; padding:9px 10px; border:1px solid var(--grigio-400); border-radius:8px; font-family:var(--font); resize:vertical; }
   .b-nota{ background:none; border:none; color:var(--blu-500); font-size:13px; font-weight:600; padding:8px 0 0; cursor:pointer; }
@@ -157,9 +160,10 @@
 
   function bozzaDaInviare(){
     const righe = [];
+    const bloccati = new Set((D.stato_attuale || []).filter(bloccato).map(s => s.v + "|" + s.r));
     Object.entries(B.righe).forEach(([vid, r]) => {
       const requisiti = Object.entries(r.req)
-        .filter(([, q]) => q.base || q.agg)
+        .filter(([rid, q]) => (q.base || q.agg) && !bloccati.has(vid + "|" + rid))
         .map(([rid, q]) => ({ requisito_id: Number(rid), data_base: q.base || null, data_agg: q.agg || null }));
       const note = (r.note || "").trim();
       if (requisiti.length || note) righe.push({ volontario_id: vid, note, requisiti });
@@ -242,13 +246,25 @@
           const st = s ? s.stato : "MANCANTE";
           const val = r.req[q.id] || { base:"", agg:"" };
           const att = s ? [s.base ? "base " + dataIt(s.base) : "", s.agg ? "aggiornamento " + dataIt(s.agg) : "", s.scad ? "scadenza " + dataIt(s.scad) : ""].filter(Boolean).join(" · ") : "";
+          // corso valido grazie alla Scuola di Formazione: solo lettura (il server ignora comunque le date)
+          if (bloccato(s)) return `
+            <div class="req">
+              <div class="req-t"><span>${esc(q.nome)}</span><span class="chip VALIDO"><i class="ti ti-school" aria-hidden="true"></i> Valido · Scuola di Formazione</span></div>
+              ${att ? `<div class="attuale">Risulta: ${esc(att)}</div>` : ""}
+              <div class="attuale">Registrato dalla Scuola di Formazione: non serve fare nulla.</div>
+            </div>`;
+          const campo = (k, etichetta) => {
+            const errata = val[k] && !dataOk(val[k]);
+            return `<div><label>${etichetta}</label><input type="date" min="1950-01-01" max="${oggi}" data-v="${esc(v.id)}" data-r="${q.id}" data-k="${k}" value="${esc(val[k])}" ${mod ? "" : "disabled"} class="${errata ? "errata" : ""}">
+              <div class="err-data" ${errata ? "" : "hidden"}>Data non valida: non nel futuro, non prima del 1950.</div></div>`;
+          };
           return `
             <div class="req">
               <div class="req-t"><span>${esc(q.nome)}</span><span class="chip ${st}">${STATI[st] || st}</span></div>
               ${att ? `<div class="attuale">Risulta: ${esc(att)}</div>` : ""}
               <div class="date">
-                <div><label>Data base</label><input type="date" min="1950-01-01" max="${oggi}" data-v="${esc(v.id)}" data-r="${q.id}" data-k="base" value="${esc(val.base)}" ${mod ? "" : "disabled"}></div>
-                ${q.aggiornamento ? `<div><label>Data aggiornamento</label><input type="date" min="1950-01-01" max="${oggi}" data-v="${esc(v.id)}" data-r="${q.id}" data-k="agg" value="${esc(val.agg)}" ${mod ? "" : "disabled"}></div>` : ""}
+                ${campo("base", "Data base")}
+                ${q.aggiornamento ? campo("agg", "Data aggiornamento") : ""}
               </div>
             </div>`;
         }).join("")}
@@ -256,6 +272,30 @@
           ? (r.note ? `<div class="req"><label class="aiuto" style="display:block;margin-bottom:4px;">Nota</label><textarea rows="2" maxlength="500" data-nota="${esc(v.id)}" ${mod ? "" : "disabled"}>${esc(r.note)}</textarea></div>` : "")
           : `<button type="button" class="b-nota" data-apri-nota="${esc(v.id)}">+ Aggiungi nota</button>`}
       </div>`;
+  }
+
+  function dataOk(iso){ return /^\d{4}-\d{2}-\d{2}$/.test(iso) && iso >= "1950-01-01" && iso <= oggi; }
+  function bloccato(s){ return !!s && s.stato === "VALIDO" && s.origine === "SCUOLA"; }
+  function segnaErrore(inp, si){
+    inp.classList.toggle("errata", si);
+    const msg = inp.parentElement.querySelector(".err-data");
+    if (msg) msg.hidden = !si;
+  }
+  // date non valide ancora presenti: le evidenzio e blocco salvataggio e invio
+  function controllaDate(){
+    const bloccati = new Set((D.stato_attuale || []).filter(bloccato).map(s => s.v + "|" + s.r));
+    let errate = 0;
+    Object.entries(B.righe).forEach(([vid, r]) => Object.entries(r.req).forEach(([rid, q]) => {
+      if (bloccati.has(vid + "|" + rid)) return;
+      ["base", "agg"].forEach(k => { if (q[k] && !dataOk(q[k])) errate++; });
+    }));
+    if (!errate) return true;
+    if (filtro){ filtro = ""; disegna(); }
+    const prima = [...app.querySelectorAll("input[type=date]")].find(i => i.value && !dataOk(i.value));
+    app.querySelectorAll("input[type=date]").forEach(i => segnaErrore(i, !!i.value && !dataOk(i.value)));
+    alert(`Ci ${errate === 1 ? "è 1 data non valida" : `sono ${errate} date non valide`} (in rosso): non possono essere nel futuro né prima del 1950. Correggile prima di continuare.`);
+    if (prima){ prima.scrollIntoView({ block:"center" }); prima.focus(); }
+    return false;
   }
 
   function riga(vid){
@@ -271,17 +311,21 @@
       t = setTimeout(() => { filtro = cerca.value.trim().toUpperCase(); disegna(); document.getElementById("cerca").focus(); }, 250);
     });
     if (!mod) return;
-    app.querySelectorAll("input[type=date]").forEach(inp => inp.addEventListener("change", () => {
-      if (inp.value && (inp.value > oggi || inp.value < "1950-01-01")){
-        alert("La data non può essere nel futuro né prima del 1950.");
-        inp.value = "";
-      }
-      const r = riga(inp.dataset.v);
-      if (!r.req[inp.dataset.r]) r.req[inp.dataset.r] = { base:"", agg:"" };
-      r.req[inp.dataset.r][inp.dataset.k] = inp.value;
-      inp.closest(".vol").classList.add("mod");
-      segnaModifica();
-    }));
+    // mentre si scrive l'anno la data passa da valori come 0002-…: si salva e basta,
+    // il controllo si fa quando si esce dalla casella (senza cancellare nulla)
+    app.querySelectorAll("input[type=date]").forEach(inp => {
+      const memorizza = () => {
+        const r = riga(inp.dataset.v);
+        if (!r.req[inp.dataset.r]) r.req[inp.dataset.r] = { base:"", agg:"" };
+        r.req[inp.dataset.r][inp.dataset.k] = inp.value;
+        inp.closest(".vol").classList.add("mod");
+        if (inp.classList.contains("errata") && (!inp.value || dataOk(inp.value))) segnaErrore(inp, false);
+        segnaModifica();
+      };
+      inp.addEventListener("input", memorizza);
+      inp.addEventListener("change", memorizza);
+      inp.addEventListener("blur", () => segnaErrore(inp, !!inp.value && !dataOk(inp.value)));
+    });
     app.querySelectorAll("[data-apri-nota]").forEach(b => b.addEventListener("click", () => {
       const vid = b.dataset.apriNota;
       const box = document.createElement("div");
@@ -320,6 +364,7 @@
 
   // ---------- azioni ----------
   async function salva(silenzioso){
+    if (!controllaDate()) return false;
     const btn = document.getElementById("btn-salva");
     btn.disabled = true;
     try {
@@ -336,6 +381,7 @@
   }
 
   function apriInvio(){
+    if (!controllaDate()) return;
     const b = bozzaDaInviare();
     const nDate = b.righe.reduce((n, r) => n + r.requisiti.reduce((m, q) => m + (q.data_base ? 1 : 0) + (q.data_agg ? 1 : 0), 0), 0);
     const velo = document.createElement("div");

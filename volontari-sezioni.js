@@ -46,6 +46,11 @@ function volsNomeVolontario(id){
 function volsRequisitiDi(ric){
   return _vol.requisiti.filter(r => (ric.requisiti_inclusi || []).map(Number).includes(r.id));
 }
+// corso valido grazie a un attestato della Scuola di Formazione: la Sezione non lo modifica
+function volsBloccatoScuola(vid, rid){
+  const s = _vol.stato.get(volChiave(vid, rid));
+  return !!s && s.stato === "VALIDO" && s.origine === "SCUOLA";
+}
 function volsScaduta(ric){ return ric.stato === "APERTA" && new Date(ric.scadenza) < new Date(); }
 function volsDataOra(iso){ return iso ? new Date(iso).toLocaleString("it-IT", { dateStyle:"short", timeStyle:"short" }) : ""; }
 function volsLink(token){ return new URL(`volontari-sezione.html?t=${encodeURIComponent(token)}`, location.href).href; }
@@ -374,6 +379,14 @@ async function volsGeneraExcel(ric){
   for (let r = 2; r <= ultima; r++){
     cols.forEach((c, i) => {
       const cella = ws.getRow(r).getCell(i + 1);
+      // corso valido grazie alla Scuola di Formazione: date non modificabili (grigie, protette)
+      if (c.data && volsBloccatoScuola(vols[r - 2].id, Number(c.k.slice(2)))){
+        cella.numFmt = "dd/mm/yyyy";
+        cella.alignment = { horizontal:"center" };
+        cella.font = { color:{ argb:"FF8A93A3" } };
+        cella.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFE6E9EE" } };
+        return;
+      }
       if (c.mod){
         cella.protection = { locked:false };
         cella.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFFFFDF5" } };
@@ -542,6 +555,7 @@ async function volsLeggiExcel(file, ric){
     if (!v){ errori.push(`Riga ${n} (${nome || "senza nome"}): volontario non riconosciuto o non più attivo nella Sezione.`); return; }
     const voce = { volontario_id: v.id, note:"", requisiti:[] };
     req.forEach(r => {
+      if (volsBloccatoScuola(v.id, r.id)) return; // già registrato dalla Scuola: ignorato (anche dal database)
       const s = _vol.stato.get(volChiave(v.id, r.id));
       const prova = (k, attuale, etichetta, campo) => {
         if (!idx(k)) return null;
