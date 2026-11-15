@@ -55,7 +55,7 @@ let _volCatalogoCorsi = null;
 let _volListenerDocumento = false;
 
 function volFiltroIniziale(){
-  return { regioni:[...VOL_REGIONI], sezioni:[], gruppo:"", etaDa:"", etaA:"", stato:"ATTIVO", daVerificare:false, q:"", req:{} };
+  return { regioni:[...VOL_REGIONI], sezioni:[], etaDa:"", etaA:"", stato:"ATTIVO", daVerificare:false, q:"", req:{} };
 }
 
 /* ---------- Permessi (solo interfaccia: il vero controllo è la RLS) ---------- */
@@ -174,7 +174,6 @@ function volDisegnaPagina(){
       <input type="search" id="vol-q" placeholder="Cerca per nome o codice fiscale…" value="${escapeHtml(_volFiltro.q)}">
       <div id="vol-ms-regioni"></div>
       <div id="vol-ms-sezioni"></div>
-      <select id="vol-gruppo"></select>
       <span class="vol-eta">Età <input type="number" id="vol-eta-da" min="0" max="120" placeholder="da" value="${escapeHtml(_volFiltro.etaDa)}">
         <input type="number" id="vol-eta-a" min="0" max="120" placeholder="a" value="${escapeHtml(_volFiltro.etaA)}"></span>
       <select id="vol-stato">
@@ -229,7 +228,6 @@ function volDisegnaPagina(){
     clearTimeout(timer);
     timer = setTimeout(() => { _volFiltro.q = qInput.value; volAggiornaVista(); }, 150);
   });
-  document.getElementById("vol-gruppo").addEventListener("change", e => { _volFiltro.gruppo = e.target.value; volAggiornaVista(); });
   document.getElementById("vol-eta-da").addEventListener("input", e => { _volFiltro.etaDa = e.target.value; volAggiornaVista(); });
   document.getElementById("vol-eta-a").addEventListener("input", e => { _volFiltro.etaA = e.target.value; volAggiornaVista(); });
   document.getElementById("vol-stato").addEventListener("change", e => { _volFiltro.stato = e.target.value; volAggiornaVista(); });
@@ -298,15 +296,6 @@ function volAggiornaFiltriDipendenti(){
     scelti: f.sezioni,
     onChange: (scelti) => { f.sezioni = scelti; volAggiornaFiltriDipendenti(); volAggiornaVista(); }
   });
-
-  const sezSet = new Set(f.sezioni);
-  const gruppi = [...new Set(_vol.volontari
-    .filter(v => regAttive.includes(v.regione) && (!sezSet.size || sezSet.has(v.sezione)) && v.gruppo)
-    .map(v => v.gruppo))].sort((a, b) => a.localeCompare(b, "it"));
-  if (f.gruppo && !gruppi.includes(f.gruppo)) gruppi.unshift(f.gruppo);
-  const selG = document.getElementById("vol-gruppo");
-  selG.innerHTML = `<option value="">Tutti i gruppi</option>` +
-    gruppi.map(g => `<option value="${escapeHtml(g)}" ${f.gruppo === g ? "selected" : ""}>${escapeHtml(g)}</option>`).join("");
 }
 
 // Menu a tendina con caselle. Nessuna scelta = tutte.
@@ -344,7 +333,6 @@ function volFiltra(){
   return _vol.volontari.filter(v => {
     if (reg.size && !reg.has(v.regione)) return false;
     if (sez.size && !sez.has(v.sezione)) return false;
-    if (f.gruppo && (v.gruppo || "") !== f.gruppo) return false;
     if (f.stato && v.stato !== f.stato) return false;
     if (f.daVerificare && !v.da_verificare) return false;
     if (da !== null && (v.eta === null || v.eta < da)) return false;
@@ -415,7 +403,6 @@ const VOL_COLONNE = [
   { k:"cf", label:"CF" },
   { k:"regione", label:"Regione" },
   { k:"sezione", label:"Sezione" },
-  { k:"gruppo", label:"Gruppo" },
   { k:"data_nascita", label:"Data nascita" },
   { k:"eta", label:"Età" },
   { k:"stato", label:"Stato" },
@@ -441,7 +428,6 @@ function volRenderTabella(box, lista){
       <td class="vol-cf">${escapeHtml(v.cf)}</td>
       <td>${escapeHtml(v.regione)}</td>
       <td>${escapeHtml(v.sezione)}</td>
-      <td>${escapeHtml(v.gruppo || "")}</td>
       <td>${v.data_nascita ? formatDataIt(v.data_nascita) : ""}</td>
       <td>${v.eta ?? ""}</td>
       <td><span class="vol-stato ${v.stato}">${VOL_STATI[v.stato] || v.stato}</span></td>
@@ -684,14 +670,14 @@ function volEsportaExcel(){
   const lista = volOrdina(volFiltra());
   if (!lista.length){ alert("Nessun volontario da esportare con questi filtri."); return; }
   const req = volRequisitiAttivi();
-  const intest = ["Cognome","Nome","Codice fiscale","Regione","Sezione","Gruppo","Squadra","Data nascita","Età","Stato"];
+  const intest = ["Cognome","Nome","Codice fiscale","Regione","Sezione","Squadra","Data nascita","Età","Stato"];
   req.forEach(r => {
     if (r.prevede_aggiornamento) intest.push(`${r.nome} – Base`, `${r.nome} – Ult. aggiornamento`, `${r.nome} – Scadenza`, `${r.nome} – Stato`);
     else intest.push(r.nome);
   });
   const d = x => x ? formatDataIt(x) : "";
   const righe = lista.map(v => {
-    const riga = [v.cognome, v.nome, v.cf, v.regione, v.sezione, v.gruppo || "", v.squadra || "",
+    const riga = [v.cognome, v.nome, v.cf, v.regione, v.sezione, v.squadra || "",
       d(v.data_nascita), v.eta ?? "", VOL_STATI[v.stato] || v.stato];
     req.forEach(r => {
       const s = _vol.stato.get(volChiave(v.id, r.id));
