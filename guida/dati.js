@@ -428,6 +428,7 @@ const PAGINE = [
   video:"", audio:"",
   intro:"Questa pagina è per le Sezioni. Se il Polo Logistico ti ha mandato un link per aggiornare i corsi dei volontari, ti spiego come si compila. Si fa anche dal telefono, e non servono password.",
   schermo: () => `<div class="m-app solo"><main class="m-main"><div class="m-head"><b>Aggiornamento corsi e abilitazioni · Sezione di Vercelli</b></div><div class="m-body">
+    <div class="m-azioni" data-h="excel">${btn("Scarica Excel","","grigio")}${btn("Carica Excel compilato","","grigio")}</div>
     ${cerca("Cerca volontario o gruppo…","cerca")}
     <div class="m-box" data-h="volontario"><div class="m-box-t">ROSSI MARIO · Gruppo Vercelli · 54 anni · CF ····501X</div>
       <div class="m-riga">Corso 12 ore ${tag("Da aggiornare","g")} <span class="m-sp"></span>${sel("Data base")}${sel("Data aggiornamento")}</div>
@@ -444,8 +445,8 @@ const PAGINE = [
      v:"Se hai un dubbio su un volontario, aggiungi una nota sotto il suo nome. Se manca qualcuno, o qualcuno non è più attivo, scrivilo in fondo, nelle segnalazioni: l'elenco non si cambia da qui, ci pensa il Polo Logistico."},
     {t:"Bozza e invio", d:"Salva bozza per riprendere più tardi dallo stesso link. Quando hai finito premi Invia e scrivi nome e ruolo di chi ha compilato. Dopo l'invio la pagina resta in sola lettura.", h:"invia",
      v:"Puoi fermarti quando vuoi: premi Salva bozza e riprendi più tardi dallo stesso link. Quando hai finito premi Invia, e scrivi il tuo nome e il tuo ruolo. Da quel momento la pagina è in sola lettura, e il Polo Logistico controlla le date prima di registrarle."},
-    {t:"Con Excel", d:"Se hai ricevuto un file Excel invece del link: compila solo le colonne gialle, il foglio Segnalazioni e, nel foglio Istruzioni, chi ha compilato. Non aggiungere righe o colonne, salva e rimandalo.", h:"",
-     v:"Se invece ti è arrivato un file Excel, funziona allo stesso modo. Compili solo le colonne gialle con le date, scrivi le segnalazioni nel loro foglio, e nel foglio istruzioni metti chi ha compilato. Non aggiungere righe o colonne, salva e rimandalo al Polo Logistico."}
+    {t:"Con Excel", d:"Dalla pagina del link puoi premere Scarica Excel, compilare le colonne gialle e poi Carica Excel compilato: il modulo si riempie da solo, controlli e premi Invia. Se invece il Polo ti ha mandato direttamente un file Excel, compilalo allo stesso modo (nel foglio Istruzioni metti chi ha compilato) e rimandalo.", h:"excel",
+     v:"Se preferisci Excel, dalla pagina del link premi Scarica Excel. Compili solo le colonne gialle con le date, scrivi le segnalazioni nel loro foglio, e poi torni sulla pagina e premi Carica Excel compilato: il modulo si riempie da solo, controlli e premi Invia. Se invece il Polo ti ha mandato direttamente un file, compilalo allo stesso modo e rimandalo."}
   ]
 },
 {

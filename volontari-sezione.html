@@ -61,6 +61,9 @@
   .date input.errata{ border-color:var(--rosso); background:var(--rosso-bg); }
   .err-data{ color:var(--rosso); font-size:11.5px; margin-top:3px; }
   .chip .ti{ font-size:13px; vertical-align:-1px; }
+  .excel-box{ border-top:1px solid var(--grigio-200); margin-top:12px; padding-top:12px; }
+  .excel-az{ display:flex; gap:8px; flex-wrap:wrap; }
+  .excel-az .grande{ flex:1; min-width:180px; font-size:14px; padding:11px 12px; }
   .date input:disabled, textarea:disabled{ background:var(--grigio-100); color:var(--grigio-800); }
   textarea{ width:100%; font-size:15px; padding:9px 10px; border:1px solid var(--grigio-400); border-radius:8px; font-family:var(--font); resize:vertical; }
   .b-nota{ background:none; border:none; color:var(--blu-500); font-size:13px; font-weight:600; padding:8px 0 0; cursor:pointer; }
@@ -217,6 +220,14 @@
           </ul>
           Puoi salvare la bozza e riprendere più tardi dallo stesso link. Quando hai finito premi <b>Invia</b>.
         </div>
+        <div class="excel-box">
+          <div class="aiuto" style="margin:0 0 8px;">Preferisci lavorare su Excel? Scarica il file, compila le colonne gialle e ricaricalo qui: il modulo si riempie da solo, poi controlli e premi Invia.</div>
+          <div class="excel-az">
+            <button type="button" class="grande secondario" id="btn-scarica-excel"><i class="ti ti-file-download" aria-hidden="true"></i> Scarica Excel</button>
+            <button type="button" class="grande secondario" id="btn-carica-excel"><i class="ti ti-file-upload" aria-hidden="true"></i> Carica Excel compilato</button>
+            <input type="file" id="file-excel" accept=".xlsx" hidden>
+          </div>
+        </div>
         ${D.note ? `<div class="nota-master">${esc(D.note)}</div>` : ""}
       </div>` : ""}
       <input type="search" class="cerca" id="cerca" placeholder="Cerca volontario o gruppo…" value="${esc(filtro)}">
@@ -315,6 +326,17 @@
       t = setTimeout(() => { filtro = cerca.value.trim().toUpperCase(); disegna(); document.getElementById("cerca").focus(); }, 250);
     });
     if (!mod) return;
+    document.getElementById("btn-scarica-excel").addEventListener("click", ev => {
+      const b = ev.currentTarget; b.disabled = true;
+      scaricaExcel().catch(e => alert("Non riesco a creare il file: " + e.message)).finally(() => { b.disabled = false; });
+    });
+    const inFile = document.getElementById("file-excel");
+    document.getElementById("btn-carica-excel").addEventListener("click", () => inFile.click());
+    inFile.addEventListener("change", () => {
+      const f = inFile.files[0];
+      inFile.value = "";
+      if (f) caricaExcel(f).catch(e => alert("Non riesco a leggere il file: " + e.message));
+    });
     // mentre si scrive l'anno la data passa da valori come 0002-…: si salva e basta,
     // il controllo si fa quando si esce dalla casella (senza cancellare nulla)
     app.querySelectorAll("input[type=date]").forEach(inp => {
@@ -364,6 +386,220 @@
       ta.closest(".vol").classList.add("mod");
       segnaModifica();
     });
+  }
+
+  // ---------- Excel (scarica e ricarica sulla pagina; nel file non c'è il link) ----------
+  const EXCELJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
+  const FOGLIO = "Volontari", FOGLIO_CHIAVI = "_link";
+  let caricamentoExcel = null;
+  function caricaExcelJS(){
+    if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+    if (caricamentoExcel) return caricamentoExcel;
+    caricamentoExcel = new Promise((ok, ko) => {
+      const s = document.createElement("script");
+      s.src = EXCELJS_URL;
+      s.onload = () => window.ExcelJS ? ok(window.ExcelJS) : ko(new Error("libreria Excel non disponibile"));
+      s.onerror = () => { caricamentoExcel = null; ko(new Error("controlla la connessione")); };
+      document.head.appendChild(s);
+    });
+    return caricamentoExcel;
+  }
+  const dataUtc = iso => { const [a, m, g] = iso.split("-").map(Number); return new Date(Date.UTC(a, m - 1, g)); };
+  const isoDaDate = d => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  function statoMappa(){ return new Map((D.stato_attuale || []).map(s => [s.v + "|" + s.r, s])); }
+
+  async function scaricaExcel(){
+    const ExcelJS = await caricaExcelJS();
+    const statoDi = statoMappa();
+    const cols = [{ k:"id", t:"ID", w:10 }, { k:"cognome", t:"Cognome", w:20 }, { k:"nome", t:"Nome", w:18 }, { k:"gruppo", t:"Gruppo", w:16 }];
+    D.requisiti.forEach(q => {
+      cols.push({ k:"s_" + q.id, t:q.nome + "\nsituazione attuale", w:26 });
+      cols.push({ k:"b_" + q.id, t:q.nome + "\nData base", w:14, mod:true, data:true });
+      if (q.aggiornamento) cols.push({ k:"a_" + q.id, t:q.nome + "\nData aggiornamento", w:16, mod:true, data:true });
+    });
+    cols.push({ k:"note", t:"Note", w:40, mod:true });
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Polo Logistico 1° RGPT/CAP Vercelli";
+    const ws = wb.addWorksheet(FOGLIO, { views:[{ state:"frozen", xSplit:4, ySplit:1 }] });
+    ws.columns = cols.map(c => ({ header:c.t, key:c.k, width:c.w }));
+    ws.getColumn(1).hidden = true;
+    const testa = ws.getRow(1);
+    testa.height = 42;
+    testa.eachCell((c, n) => {
+      const mod = cols[n - 1].mod;
+      c.font = { bold:true, color:{ argb: mod ? "FF0B2545" : "FFFFFFFF" } };
+      c.alignment = { vertical:"middle", horizontal:"center", wrapText:true };
+      c.fill = { type:"pattern", pattern:"solid", fgColor:{ argb: mod ? "FFFDF3DA" : "FF1D4E89" } };
+    });
+    D.volontari.forEach((v, i) => {
+      const r = B.righe[v.id] || { note:"", req:{} };
+      ws.addRow(cols.map(c => {
+        if (c.k === "id") return v.id;
+        if (c.k === "cognome" || c.k === "nome") return v[c.k];
+        if (c.k === "gruppo") return v.gruppo || "";
+        if (c.k === "note") return r.note || "";
+        const rid = Number(c.k.slice(2));
+        const s = statoDi.get(v.id + "|" + rid);
+        if (c.k.startsWith("s_")){
+          if (bloccato(s)) return "Valido · Scuola di Formazione";
+          const st = s ? (STATI[s.stato] || s.stato) : STATI.MANCANTE;
+          return [st, s && s.scad ? "scade " + dataIt(s.scad) : ""].filter(Boolean).join(" · ");
+        }
+        const k = c.k.startsWith("b_") ? "base" : "agg";
+        const iso = (r.req[rid] && r.req[rid][k]) || (s && s[k]) || "";
+        return dataOk(iso) ? dataUtc(iso) : null;
+      }));
+      const riga = ws.getRow(i + 2);
+      cols.forEach((c, n) => {
+        const cella = riga.getCell(n + 1);
+        if (c.data){ cella.numFmt = "dd/mm/yyyy"; cella.alignment = { horizontal:"center" }; }
+        const rid = c.data ? Number(c.k.slice(2)) : null;
+        if (c.data && bloccato(statoDi.get(v.id + "|" + rid))){
+          cella.font = { color:{ argb:"FF8A93A3" } };
+          cella.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFE6E9EE" } };
+          return;
+        }
+        if (c.mod){
+          cella.protection = { locked:false };
+          cella.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFFFFDF5" } };
+        }
+        if (c.data) cella.dataValidation = {
+          type:"date", operator:"between", allowBlank:true, showErrorMessage:true,
+          formulae:[new Date(Date.UTC(1950, 0, 1)), new Date(Date.UTC(2100, 0, 1))],
+          errorTitle:"Data non valida", error:"Scrivi una data nel formato gg/mm/aaaa (es. 15/03/2024)."
+        };
+        if (c.k === "note") cella.alignment = { wrapText:true, vertical:"top" };
+      });
+    });
+    await ws.protect("", { selectLockedCells:true, selectUnlockedCells:true, formatColumns:true, formatRows:true });
+
+    const sg = wb.addWorksheet("Segnalazioni");
+    sg.columns = [{ header:"Segnalazione (volontari mancanti, non più attivi, altro)", key:"t", width:110 }];
+    sg.getRow(1).font = { bold:true, color:{ argb:"FFFFFFFF" } };
+    sg.getRow(1).getCell(1).fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF1D4E89" } };
+    B.segnalazioni.filter(s => s.testo.trim()).forEach(s => sg.addRow([s.testo]));
+    for (let r = 2; r <= 61; r++){ const c = sg.getRow(r).getCell(1); c.protection = { locked:false }; c.alignment = { wrapText:true }; }
+    await sg.protect("", { selectLockedCells:true, selectUnlockedCells:true, formatRows:true });
+
+    const ist = wb.addWorksheet("Istruzioni");
+    ist.getColumn(1).width = 110;
+    [
+      ["Aggiornamento corsi e abilitazioni – Sezione di " + D.sezione, true],
+      ["", false],
+      ["• Compilate solo le colonne gialle del foglio \"Volontari\": \"Data base\" (corso completo) e, dove c'è, \"Data aggiornamento\".", false],
+      ["• Le date già presenti sono quelle che risultano al Polo Logistico: correggetele solo se sono sbagliate. Formato gg/mm/aaaa.", false],
+      ["• Le celle grigie sono corsi già registrati dalla Scuola di Formazione: non serve fare nulla.", false],
+      ["• Dubbi o correzioni su un volontario: colonna \"Note\". Volontari mancanti o non più attivi: foglio \"Segnalazioni\".", false],
+      ["• Non aggiungete righe o colonne e non cambiate l'ordine.", false],
+      ["• Poi tornate sulla pagina del link e premete \"Carica Excel compilato\": il modulo si riempie da solo. Controllate e premete Invia.", false],
+    ].forEach(([t, g]) => { const r = ist.addRow([t]); r.getCell(1).alignment = { wrapText:true }; if (g) r.font = { bold:true, size:12 }; });
+
+    const ch = wb.addWorksheet(FOGLIO_CHIAVI, { state:"veryHidden" });
+    ch.addRow(["VOL_LINK", D.sezione]);
+    ch.addRow(cols.map(c => c.k));
+
+    const buf = await wb.xlsx.writeBuffer();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([buf], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    a.download = `Corsi_${D.sezione.replace(/[^a-zA-Z0-9]+/g, "_")}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  function valoreCella(c){
+    const v = c ? c.value : null;
+    if (v === null || v === undefined) return "";
+    if (v instanceof Date) return v;
+    if (typeof v === "object"){
+      if (v.richText) return v.richText.map(t => t.text).join("");
+      if (v.text !== undefined) return String(v.text);
+      if (v.result !== undefined) return v.result;
+    }
+    return v;
+  }
+  // "yyyy-mm-dd" | "" (vuota) | null (non valida)
+  function dataDaCella(v){
+    if (v === "" || v === null || v === undefined) return "";
+    let iso = null;
+    if (v instanceof Date && !isNaN(v)) iso = isoDaDate(v);
+    else if (typeof v === "number" && v > 0) iso = isoDaDate(new Date(Math.round((v - 25569) * 86400000)));
+    else {
+      const t = String(v).trim();
+      let m = t.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/);
+      if (m) iso = `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+      else if (/^\d{4}-\d{2}-\d{2}$/.test(t)) iso = t;
+      if (iso && isoDaDate(dataUtc(iso)) !== iso) iso = null; // es. 31/02
+    }
+    return iso && dataOk(iso) ? iso : null;
+  }
+
+  async function caricaExcel(file){
+    const ExcelJS = await caricaExcelJS();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+    const ch = wb.getWorksheet(FOGLIO_CHIAVI), ws = wb.getWorksheet(FOGLIO);
+    if (!ch || !ws || valoreCella(ch.getCell("A1")) !== "VOL_LINK"){
+      alert("File non riconosciuto: usa il file scaricato da questa pagina con \"Scarica Excel\".");
+      return;
+    }
+    if (String(valoreCella(ch.getCell("B1"))) !== D.sezione){ alert("Questo file è di un'altra Sezione."); return; }
+    const chiavi = [];
+    ch.getRow(2).eachCell({ includeEmpty:true }, (c, n) => { chiavi[n - 1] = String(valoreCella(c)); });
+    const col = k => chiavi.indexOf(k) + 1;
+    if (!col("id")){ alert("Il file è stato modificato nella struttura e non si può rileggere."); return; }
+
+    const statoDi = statoMappa();
+    const volontari = new Map(D.volontari.map(v => [v.id, v]));
+    const errori = [], righe = {};
+    let nDate = 0, nNote = 0;
+    ws.eachRow({ includeEmpty:false }, (row, n) => {
+      if (n === 1) return;
+      const vid = String(valoreCella(row.getCell(col("id"))) || "").trim();
+      const nome = `${valoreCella(row.getCell(col("cognome")))} ${valoreCella(row.getCell(col("nome")))}`.trim();
+      if (!vid && !nome) return;
+      const v = volontari.get(vid);
+      if (!v){ errori.push(`Riga ${n} (${nome || "senza nome"}): volontario non riconosciuto.`); return; }
+      const r = { note:"", req:{} };
+      D.requisiti.forEach(q => {
+        const s = statoDi.get(vid + "|" + q.id);
+        if (bloccato(s)) return;
+        const leggi = (k, chiave, etichetta) => {
+          if (!col(chiave)) return "";
+          const d = dataDaCella(valoreCella(row.getCell(col(chiave))));
+          if (d === null){ errori.push(`Riga ${n} (${nome}): "${q.nome} – ${etichetta}" non è una data valida (gg/mm/aaaa, non nel futuro, non prima del 1950).`); return ""; }
+          // uguale a quanto risulta già: non è una modifica
+          return d && d !== ((s && s[k]) || "") ? d : "";
+        };
+        const base = leggi("base", "b_" + q.id, "Data base");
+        const agg = q.aggiornamento ? leggi("agg", "a_" + q.id, "Data aggiornamento") : "";
+        if (base || agg){ r.req[q.id] = { base, agg }; nDate += (base ? 1 : 0) + (agg ? 1 : 0); }
+      });
+      const nota = col("note") ? String(valoreCella(row.getCell(col("note"))) || "").trim().slice(0, 500) : "";
+      if (nota){ r.note = nota; nNote++; }
+      if (Object.keys(r.req).length || r.note) righe[vid] = r;
+    });
+    const segnalazioni = [];
+    const sg = wb.getWorksheet("Segnalazioni");
+    if (sg) sg.eachRow({ includeEmpty:false }, (row, n) => {
+      if (n === 1) return;
+      const t = String(valoreCella(row.getCell(1)) || "").trim();
+      if (t) segnalazioni.push({ testo: t.slice(0, 500) });
+    });
+
+    if (errori.length){
+      alert(`Il file non è stato caricato: ${errori.length} ${errori.length === 1 ? "problema" : "problemi"} da correggere.\n\n` +
+        errori.slice(0, 15).join("\n") + (errori.length > 15 ? `\n… e altri ${errori.length - 15}.` : ""));
+      return;
+    }
+    const prima = Object.keys(B.righe).length + B.segnalazioni.filter(s => s.testo.trim()).length;
+    if (prima && !confirm("Il contenuto del file sostituirà quanto già compilato in questa pagina. Continuare?")) return;
+    B.righe = righe;
+    B.segnalazioni = segnalazioni;
+    filtro = "";
+    segnaModifica();
+    disegna();
+    alert(`File caricato: ${nDate} date, ${nNote} note e ${segnalazioni.length} segnalazioni.\nControlla l'elenco e premi Salva bozza o Invia.`);
   }
 
   // ---------- azioni ----------
