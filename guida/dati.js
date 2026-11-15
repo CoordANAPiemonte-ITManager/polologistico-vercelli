@@ -223,26 +223,30 @@ const PAGINE = [
   schermo: () => app("volontari","Volontari", `
     <div class="m-barra" data-h="ambito">${btn("CAP","","grigio")}${btn("CAL","","grigio")}${btn("1° RGPT","")}</div>
     <div class="m-barra" data-h="filtri">${cerca("Cerca per nome o codice fiscale…")}${sel("Regione: Tutte")}${sel("Sezione: Tutte")}${sel("Tutti i gruppi")}${sel("Attivo")}${btn("Corsi e abilitazioni","","grigio")}${btn("Azzera filtri","","grigio")}</div>
-    <div class="m-barra">${tabs(["Elenco","Riepilogo"],"riepilogo")}<span class="m-sp"></span>${btn("Esporta Excel","excel","grigio")}${btn("Importa da PIA","importa")}${btn("⚙ Corsi e abilitazioni","requisiti","scuro")}</div>
-    ${tab([["Cognome","Nome","Sezione","Età","Stato","Base PC","Motosega","Patente C"],["ROSSI","MARIO","VERCELLI","54",tag("Attivo","v"),tag("🎓","v"),tag("✓","v"),""],["DE LUCA","ANNA MARIA","GENOVA","38",tag("Attivo","v"),tag("✓","v"),tag("✓","g"),tag("✓","v")],["BIANCHI","LUIGI","AOSTA","61",tag("Non in PIA","g"),"","",""]],"elenco")}
-    <div class="m-riga" data-h="spunte">${tag("✓","v")} valido · ${tag("✓","g")} scaduto · ${tag("🎓","v")} dalla Scuola di Formazione</div>`),
+    <div class="m-barra">${tabs(["Elenco","Riepilogo","Richieste alle Sezioni","Da validare (3)"],"schede")}<span class="m-sp"></span>${btn("Esporta Excel","excel","grigio")}${btn("Importa da PIA","importa")}${btn("⚙ Corsi e abilitazioni","requisiti","scuro")}</div>
+    ${tab([["Cognome","Nome","Sezione","Età","Base 4 ore","12 ore","Caposquadra"],["ROSSI","MARIO","VERCELLI","54",tag("🎓","v"),tag("↻","g"),tag("✓","v")],["DE LUCA","ANNA MARIA","GENOVA","38",tag("✓","v"),tag("✓","g"),""],["BIANCHI","LUIGI","AOSTA","61",tag("✓","v"),tag("✓","r"),tag("!","n")]],"elenco")}
+    <div class="m-riga" data-h="spunte">${tag("✓","v")} valido · ${tag("✓","g")} in scadenza · ${tag("↻","g")} da aggiornare · ${tag("✓","r")} scaduto · ${tag("!","n")} anomalia · ${tag("🎓","v")} dalla Scuola</div>`),
   passi:[
     {t:"Scegli l'ambito", d:"CAP = solo Piemonte. CAL = solo Liguria. 1° RGPT = Piemonte, Liguria e Valle d'Aosta (è quello di partenza).", h:"ambito",
      v:"In alto scegli l'ambito. CAP mostra solo il Piemonte, CAL solo la Liguria, e primo Raggruppamento le tre regioni insieme, che è quello di partenza."},
-    {t:"Trova chi ti serve", d:"Filtra per Regione, Sezione, Gruppo, età, stato e «da verificare», o cerca per nome e codice fiscale. Con Corsi e abilitazioni cerchi chi ha, o non ha, un certo corso. Azzera filtri riparte da capo.", h:"filtri",
-     v:"Poi restringi l'elenco come ti serve: per Sezione, per gruppo, per età, oppure cerchi direttamente un nome o un codice fiscale. Col pulsante Corsi e abilitazioni puoi chiedere, per esempio, tutti quelli che non hanno ancora il corso base. E se ti perdi, Azzera filtri e si riparte."},
+    {t:"Trova chi ti serve", d:"Filtra per Regione, Sezione, Gruppo, età, stato e «da verificare», o cerca per nome e codice fiscale. Con Corsi e abilitazioni scegli per ogni corso: valido, in scadenza, da aggiornare, scaduto o mancante. Azzera filtri riparte da capo.", h:"filtri",
+     v:"Poi restringi l'elenco come ti serve: per Sezione, per gruppo, per età, oppure cerchi un nome o un codice fiscale. Col pulsante Corsi e abilitazioni puoi chiedere, per esempio, tutti quelli che devono fare l'aggiornamento del corso dodici ore. E se ti perdi, Azzera filtri e si riparte."},
     {t:"L'elenco", d:"Nome, Sezione, Gruppo ed età arrivano dal PIA e qui non si modificano. Clicca un'intestazione per ordinare. Sopra vedi quanti volontari sono visualizzati sul totale.", h:"elenco",
      v:"I dati anagrafici arrivano dal PIA, quindi qui si leggono soltanto: se c'è un errore va corretto sul PIA. Clicchi sull'intestazione di una colonna per ordinare, per esempio per età o per Sezione. E sopra la tabella vedi quanti volontari stai guardando, sul totale."},
-    {t:"Leggere le spunte", d:"Verde = valido. Arancione = scaduto. Cappello da laureato = preso in automatico dagli attestati della Scuola di Formazione: clicca per aprire l'attestato.", h:"spunte",
-     v:"Ogni colonna in fondo è un corso o un'abilitazione. Verde vuol dire che è valido, arancione che è scaduto. Se vedi il cappello da laureato, la spunta l'ha messa l'app da sola, perché c'è l'attestato nella Scuola di Formazione: cliccandoci sopra lo apri."},
-    {t:"Spuntare a mano", d:"Clicca una cella: metti o togli la spunta, con data di conseguimento e note, poi Salva. Le spunte della Scuola non si modificano da qui.", h:"spunte", solo:"completo",
-     v:"Per i corsi fatti altrove, clicchi sulla cella e metti la spunta a mano, con la data e, se serve, una nota. Le spunte col cappello invece non si toccano: si aggiornano da sole dalla Scuola di Formazione."},
-    {t:"Riepilogo e Excel", d:"Riepilogo: per ogni Sezione la percentuale di volontari in regola su ogni corso, con i totali per Regione. Esporta Excel scarica esattamente l'elenco che stai vedendo.", h:"riepilogo",
-     v:"Nella scheda Riepilogo vedi, Sezione per Sezione, quanti volontari sono in regola su ogni corso, in percentuale, con i totali per regione. E Esporta Excel ti scarica proprio l'elenco che hai sullo schermo, con i filtri che hai messo."},
+    {t:"Leggere i colori", d:"Verde = valido. Giallo = scade a breve. Arancione con le frecce = scaduto, da rinnovare con l'aggiornamento. Rosso = scaduto. Grigio = c'è un aggiornamento ma manca il corso base. Il cappello indica che la data viene dalla Scuola di Formazione. Passando sopra la cella vedi base, ultimo aggiornamento e scadenza.", h:"spunte",
+     v:"Ogni colonna in fondo è un corso o un'abilitazione, e il colore ti dice subito com'è messo. Verde è valido, giallo vuol dire che scade a breve. Arancione con le due frecce è scaduto, ma si rinnova con il corso di aggiornamento; rosso invece è scaduto e basta. Il grigio segnala qualcosa che non torna: c'è un aggiornamento ma manca il corso base. E il cappello da laureato vuol dire che la data arriva da sola dalla Scuola di Formazione."},
+    {t:"Lo storico e le date a mano", d:"Clicca una cella: vedi tutte le date (base e aggiornamenti) con la loro provenienza. Puoi aggiungere una data Base o di Aggiornamento; una data sbagliata si annulla indicando il motivo, e resta nello storico.", h:"spunte", solo:"completo",
+     v:"Clicchi su una cella e vedi tutta la storia di quel corso: il corso base, gli aggiornamenti, e da dove arriva ogni data. Da lì aggiungi una data a mano, base o aggiornamento. Se ne hai inserita una sbagliata la annulli, scrivendo il motivo: non sparisce, resta nello storico barrata."},
+    {t:"Riepilogo e Excel", d:"Riepilogo: per ogni Sezione la percentuale di volontari in regola su ogni corso, più quanti sono in scadenza e da aggiornare, con i totali per Regione. Esporta Excel scarica l'elenco che stai vedendo; per i corsi con aggiornamento ci sono base, ultimo aggiornamento, scadenza e stato.", h:"schede",
+     v:"Nella scheda Riepilogo vedi, Sezione per Sezione, quanti volontari sono in regola su ogni corso, e quanti sono in scadenza o da aggiornare, con i totali per regione. Esporta Excel ti scarica l'elenco che hai sullo schermo, con i filtri che hai messo."},
     {t:"Importare dal PIA", d:"Nel PIA apri Volontari ANA > Schede Volontari, imposta 1Rgpt, NON Obsoleti e Righe = TUTTE, premi Filtra e clicca il preferito Copia da PIA. Poi qui: Importa da PIA, incolla, controlla l'anteprima e conferma.", h:"importa", solo:"completo",
      v:"Per aggiornare l'elenco si passa dal PIA. Nella finestra Importa da PIA trovi il pulsante Copia da PIA: lo trascini una volta nella barra dei preferiti. Poi nel PIA apri le schede volontari, filtri il primo Raggruppamento con tutte le righe, clicchi il preferito, torni qui e incolli. Prima di salvare vedi un'anteprima: chi è nuovo, chi è cambiato, e chi non c'è più. Chi non c'è più non viene cancellato: diventa Non in PIA."},
-    {t:"Corsi e abilitazioni", d:"Con l'ingranaggio decidi quali colonne mostrare: aggiungi, rinomina, riordina con le frecce, attiva o disattiva. Collegando un corso della Scuola di Formazione, le spunte arrivano da sole.", h:"requisiti", solo:"completo",
-     v:"Infine, con l'ingranaggio decidi quali corsi e abilitazioni seguire. Li aggiungi, li metti in ordine con le frecce, e puoi dire quanti mesi valgono. Se colleghi un corso della Scuola di Formazione, chi ha l'attestato risulta spuntato in automatico."}
+    {t:"Corsi e abilitazioni", d:"Con l'ingranaggio decidi quali colonne mostrare e quanto valgono. Per i corsi che si rinnovano (es. 12 ore e Caposquadra) spunta «aggiornamento», indica la validità dell'aggiornamento e il corso di aggiornamento della Scuola. Il preavviso dice da quanti giorni prima la cella diventa gialla.", h:"requisiti", solo:"completo",
+     v:"Con l'ingranaggio decidi quali corsi e abilitazioni seguire, e quanti mesi valgono. Per quelli che, quando scadono, si rinnovano con un aggiornamento, come il dodici ore e il caposquadra, spunti aggiornamento e colleghi il corso di aggiornamento della Scuola: così anche quegli attestati arrivano da soli. Il preavviso dice quanti giorni prima della scadenza la cella diventa gialla."},
+    {t:"Richieste alle Sezioni", d:"Chiedi a una Sezione di completare le date: scegli Sezione, corsi e scadenza. Con il link la Sezione compila anche da cellulare (Copia link o Invia mail); con l'Excel generi il file, lo mandi e poi lo ricarichi compilato. Puoi prorogare o revocare.", h:"schede", solo:"admin",
+     v:"Le date le possono completare anche le Sezioni. Nella scheda Richieste alle Sezioni ne crei una: scegli la Sezione, i corsi da compilare e la scadenza. Puoi mandare un link, che si apre anche dal cellulare, oppure un file Excel da compilare e rimandare. Se serve, la richiesta si proroga o si revoca."},
+    {t:"Da validare", d:"Quello che arriva dalle Sezioni non entra da solo: per ogni riga vedi la data attuale e quella proposta e scegli Approva o Rifiuta (con il motivo), oppure Approva tutte. Le segnalazioni si segnano come gestite. Il numero rosso nel menu dice quante righe aspettano.", h:"schede", solo:"admin",
+     v:"Quello che mandano le Sezioni non entra mai da solo. Lo trovi nella scheda Da validare, con il numerino rosso anche nel menu. Per ogni riga vedi la data che abbiamo e quella proposta: approvi, oppure rifiuti scrivendo il motivo. Se è tutto a posto, Approva tutte. Le segnalazioni, tipo un volontario che manca, le leggi e le segni come gestite."}
   ]
 },
 {
@@ -412,6 +416,33 @@ const PAGINE = [
      v:"E qui c'è la tua firma personale. Vale la pena farla subito: la disegni una volta, e poi l'app la usa da sola nelle consegne delle radio e nei documenti dell'Editor PDF. Ognuno può cambiare solo la propria."},
     {t:"Le liste", d:"Le voci che compaiono nei menu a tendina delle altre sezioni. Se una voce manca qui, non si può scegliere né importare da Excel.", h:"liste", solo:"completo",
      v:"Più sotto ci sono le liste: categorie e marche delle radio, patenti, abilitazioni, esigenze alimentari, le mail delle Sezioni. Sono le voci che compaiono nei menu a tendina delle altre pagine. Se una voce manca qui, non la puoi scegliere da nessuna parte, e neanche importare da Excel."}
+  ]
+},
+{
+  id:"volontari-sezione", titolo:"Per le Sezioni: corsi e abilitazioni", icona:"ti-certificate",
+  perche:"Hai ricevuto dal Polo Logistico un link per aggiornare i corsi dei tuoi volontari: ecco come compilarlo. Non servono password.",
+  chi:"Le Sezioni ANA che ricevono la richiesta.",
+  video:"", audio:"",
+  intro:"Questa pagina è per le Sezioni. Se il Polo Logistico ti ha mandato un link per aggiornare i corsi dei volontari, ti spiego come si compila. Si fa anche dal telefono, e non servono password.",
+  schermo: () => `<div class="m-app solo"><main class="m-main"><div class="m-head"><b>Aggiornamento corsi e abilitazioni · Sezione di Vercelli</b></div><div class="m-body">
+    ${cerca("Cerca volontario o gruppo…","cerca")}
+    <div class="m-box" data-h="volontario"><div class="m-box-t">ROSSI MARIO · Gruppo Vercelli · 54 anni · CF ····501X</div>
+      <div class="m-riga">Corso 12 ore ${tag("Da aggiornare","g")} <span class="m-sp"></span>${sel("Data base")}${sel("Data aggiornamento")}</div>
+      <div class="m-riga">Caposquadra ${tag("Non risulta","n")} <span class="m-sp"></span>${sel("Data base")}</div>
+      <div class="m-riga" data-h="nota">+ Aggiungi nota</div></div>
+    <div class="m-box" data-h="segnalazioni"><div class="m-box-t">Segnalazioni</div><div class="m-riga">Nominativo mancante: Bianchi Luigi, gruppo Santhià</div></div>
+    <div class="m-azioni"><span class="m-sp"></span>${btn("Salva bozza","bozza","grigio")}${btn("Invia","invia")}</div></div></main></div>`,
+  passi:[
+    {t:"Cosa vedi", d:"I volontari attivi della tua Sezione e, per ogni corso richiesto, la situazione che risulta al Polo Logistico (valido, in scadenza, da aggiornare, scaduto, non risulta).", h:"volontario",
+     v:"Aprendo il link trovi i volontari attivi della tua Sezione. Per ognuno, e per ogni corso richiesto, vedi come risulta a noi: valido, in scadenza, da aggiornare, scaduto, oppure non risulta."},
+    {t:"Inserire le date", d:"Compila solo quello che manca o è cambiato: Data base = corso completo, Data aggiornamento = ultimo corso di aggiornamento. Le date non possono essere nel futuro.", h:"volontario",
+     v:"Tu compili solo quello che manca o che è cambiato. La data base è quella del corso completo, la data aggiornamento quella dell'ultimo corso di aggiornamento, dove previsto. Usa la ricerca in alto per trovare subito una persona."},
+    {t:"Note e segnalazioni", d:"Per dubbi su un volontario usa Aggiungi nota. Volontari mancanti o non più attivi scrivili in Segnalazioni: l'elenco non cambia da qui, lo aggiorna il Polo Logistico.", h:"segnalazioni",
+     v:"Se hai un dubbio su un volontario, aggiungi una nota sotto il suo nome. Se manca qualcuno, o qualcuno non è più attivo, scrivilo in fondo, nelle segnalazioni: l'elenco non si cambia da qui, ci pensa il Polo Logistico."},
+    {t:"Bozza e invio", d:"Salva bozza per riprendere più tardi dallo stesso link. Quando hai finito premi Invia e scrivi nome e ruolo di chi ha compilato. Dopo l'invio la pagina resta in sola lettura.", h:"invia",
+     v:"Puoi fermarti quando vuoi: premi Salva bozza e riprendi più tardi dallo stesso link. Quando hai finito premi Invia, e scrivi il tuo nome e il tuo ruolo. Da quel momento la pagina è in sola lettura, e il Polo Logistico controlla le date prima di registrarle."},
+    {t:"Con Excel", d:"Se hai ricevuto un file Excel invece del link: compila solo le colonne gialle, il foglio Segnalazioni e, nel foglio Istruzioni, chi ha compilato. Non aggiungere righe o colonne, salva e rimandalo.", h:"",
+     v:"Se invece ti è arrivato un file Excel, funziona allo stesso modo. Compili solo le colonne gialle con le date, scrivi le segnalazioni nel loro foglio, e nel foglio istruzioni metti chi ha compilato. Non aggiungere righe o colonne, salva e rimandalo al Polo Logistico."}
   ]
 },
 {

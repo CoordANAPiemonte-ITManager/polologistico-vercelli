@@ -902,8 +902,14 @@ button.pe-lib-card:hover,button.pe-lib-card:focus-visible{border-color:var(--blu
 
 .vol-tab td.vol-req{text-align:center;cursor:pointer;min-width:44px;font-weight:700;}
 .vol-tab td.vol-req:hover{outline:2px solid var(--blu-300);outline-offset:-2px;}
-.vol-req.ok{background:var(--verde-bg) !important;color:var(--verde);}
-.vol-req.scad{background:#fde6cf !important;color:#c25e00;}
+/* stati del requisito: verde valido, giallo in scadenza, arancione da aggiornare, rosso scaduto, grigio anomalia */
+.vol-req.VALIDO,.vol-chip.VALIDO{background:var(--verde-bg) !important;color:var(--verde);}
+.vol-req.IN_SCADENZA,.vol-chip.IN_SCADENZA{background:#fff4c2 !important;color:#8a6d00;}
+.vol-req.DA_AGGIORNARE,.vol-chip.DA_AGGIORNARE{background:#fde6cf !important;color:#c25e00;}
+.vol-req.SCADUTO,.vol-chip.SCADUTO{background:var(--rosso-bg) !important;color:var(--rosso);}
+.vol-req.ANOMALIA,.vol-chip.ANOMALIA{background:var(--grigio-200) !important;color:var(--grigio-800);}
+.vol-chip.MANCANTE{background:var(--grigio-100);color:var(--grigio-600);border:1px solid var(--grigio-200);}
+.vol-chip{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;margin-right:4px;}
 .vol-req .ti{font-size:15px;}
 .vol-leg{display:inline-block;min-width:22px;padding:1px 5px;border-radius:4px;text-align:center;font-weight:700;}
 .vol-legenda{font-size:11.5px;color:var(--grigio-600);margin-top:8px;}
@@ -955,3 +961,56 @@ button.pe-lib-card:hover,button.pe-lib-card:focus-visible{border-color:var(--blu
   .vol-tab .vol-f1{min-width:110px;max-width:110px;}
   .vol-tab .vol-f2{left:110px;min-width:90px;max-width:90px;}
 }
+
+/* ---------- VOLONTARI v2: storico eventi, richieste alle Sezioni, validazione ---------- */
+.vol-nascosto{display:none !important;}
+.vol-popover{width:330px;max-height:70vh;overflow-y:auto;}
+.vol-pop-stato{margin-bottom:8px;font-size:12px;color:var(--grigio-800);}
+.vol-storico{list-style:none;margin:0 0 8px;padding:0;border-top:1px solid var(--grigio-100);}
+.vol-storico li{padding:7px 0;border-bottom:1px solid var(--grigio-100);font-size:12.5px;}
+.vol-storico li.annullato{opacity:.5;text-decoration:line-through;}
+.vol-storico li.annullato .vol-pop-nota{text-decoration:none;}
+.vol-origine{float:right;font-size:11px;color:var(--grigio-600);}
+.vol-ev-az{display:flex;gap:10px;margin-top:3px;font-size:12px;}
+.vol-ev-az .row-del{padding:0;}
+.vol-ev-form{background:var(--grigio-100);border-radius:8px;padding:8px;margin-top:6px;}
+.vol-ev-riga{display:flex;gap:6px;margin-bottom:6px;}
+.vol-ev-form select,.vol-ev-form input{padding:6px 7px;border:1px solid var(--grigio-400);border-radius:6px;font-size:12.5px;background:#fff;}
+.vol-ev-form input[name=note]{width:100%;}
+.vol-ev-riga input{flex:1;}
+.vol-num{font-size:12px;font-weight:700;}
+.vol-num.IN_SCADENZA{color:#8a6d00;}
+.vol-num.DA_AGGIORNARE{color:#c25e00;}
+.vol-rie thead tr:first-child th{top:0;}
+.vol-rie thead tr.vol-th-sotto th{top:34px;font-size:10px;text-align:center;}
+.vol-th-gruppo{border-left:1px solid var(--grigio-200);}
+.vol-tab-badge{display:inline-block;min-width:18px;padding:0 6px;margin-left:4px;border-radius:9px;background:var(--rosso);color:#fff;font-size:11px;line-height:18px;text-align:center;}
+
+.vols-barra{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+.vols-barra select{padding:7px 9px;border:1px solid var(--grigio-400);border-radius:7px;font-size:12.5px;background:#fff;}
+.vols-tab td{vertical-align:top;}
+.vols-tab small{color:var(--grigio-600);}
+.vols-nota{color:var(--grigio-600);}
+.vols-azioni{white-space:nowrap;}
+.vols-azioni .row-del{color:var(--blu-500);margin-right:6px;}
+.vols-azioni .row-del[data-az="revoca"],.vols-azioni .row-del[data-rifiuta]{color:var(--rosso);}
+.vols-stato{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;}
+.vols-stato.APERTA{background:#e8eef7;color:var(--blu-500);}
+.vols-stato.INVIATA{background:var(--giallo-bg);color:var(--giallo);}
+.vols-stato.CHIUSA{background:var(--verde-bg);color:var(--verde);}
+.vols-stato.REVOCATA{background:var(--grigio-200);color:var(--grigio-600);}
+.vols-scaduta{color:var(--rosso);font-weight:700;font-size:11px;}
+.vols-esito{font-weight:700;font-size:12px;}
+.vols-esito.APPROVATA,.vols-esito.GESTITA{color:var(--verde);}
+.vols-esito.RIFIUTATA{color:var(--rosso);}
+.vols-esito.IN_ATTESA{color:var(--giallo);}
+.vols-scelte{display:flex;flex-direction:column;gap:6px;margin-top:4px;}
+.vols-scelte label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;}
+.vols-scelte input{width:auto;}
+.vols-link input{width:100%;padding:9px 10px;border:1px solid var(--grigio-400);border-radius:8px;font-family:monospace;font-size:12px;}
+.vols-elenco{margin:8px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5;}
+.vols-gruppo{background:#fff;border:1px solid var(--grigio-200);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;}
+.vols-gruppo-t{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:13px;}
+.vols-segn-t{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--grigio-600);margin:12px 0 4px;}
+.vols-ok{background:var(--verde);}
+.vols-ok:hover{background:#245f27;}

@@ -5,8 +5,13 @@
    escapeHtml, chiudiModal, livelloPermesso, caricaTutteLeRighe, cfValido,
    formatDataIt, attaccaListenerApriFile, STORAGE_BUCKET_DOC_VOLONTARI).
    Tabelle: vol_sezioni, vol_volontari (vista vol_volontari_v con la Regione),
-   vol_requisiti, vol_requisiti_volontario, vista vol_stato_requisiti,
-   vol_import_log; import tramite RPC vol_importa (sql/volontari_schema.sql).
+   vol_requisiti, vol_eventi_requisito (storico BASE / AGGIORNAMENTO, mai
+   cancellato: si annulla con vol_annulla_evento), vista vol_stato_requisiti
+   (VALIDO / IN_SCADENZA / DA_AGGIORNARE / SCADUTO / ANOMALIA; nessuna riga =
+   MANCANTE), RPC vol_eventi_f (storico con gli eventi della Scuola),
+   vol_import_log; import tramite RPC vol_importa.
+   SQL: sql/volontari_schema.sql + sql/volontari_v2.sql.
+   Richieste alle Sezioni e validazione: volontari-sezioni.js.
    L'anagrafica è in sola lettura: cambia solo con "Importa da PIA".
    I dati si caricano una volta; filtri, ordinamento e riepilogo sono locali.
    ===================================================================== */
@@ -18,6 +23,13 @@ const VOL_AMBITI = [
   { k:"RGPT", label:"1° RGPT", sub:"Piemonte, Liguria, Valle d'Aosta", regioni:VOL_REGIONI },
 ];
 const VOL_STATI = { ATTIVO:"Attivo", NON_IN_PIA:"Non in PIA", DIMESSO:"Dimesso" };
+// stato di un requisito (vista vol_stato_requisiti); nessuna riga = MANCANTE
+const VOL_STATI_REQ = {
+  VALIDO:"Valido", IN_SCADENZA:"In scadenza", DA_AGGIORNARE:"Da aggiornare",
+  SCADUTO:"Scaduto", ANOMALIA:"Anomalia (aggiornamento senza base)", MANCANTE:"Mancante"
+};
+const VOL_ORIGINI = { MANUALE:"Manuale", SCUOLA:"Scuola di Formazione", SEZIONE_LINK:"Sezione (link)", SEZIONE_EXCEL:"Sezione (Excel)" };
+const VOL_COLONNE_STATO = "volontario_id, requisito_id, data_base, ultimo_aggiornamento, data, data_scadenza, origine, origine_base, origine_aggiornamento, stato, documento_path, edizione";
 const VOL_COLONNE_SELECT = "id, cf, cognome, nome, data_nascita, sesso, sezione, regione, ordine_sezione, gruppo, squadra, matricola_gisa, matricola_vola, stato, da_verificare, ultimo_import";
 const VOL_INTESTAZIONE_PIA = ["SEZIONE","MAT_GISA","MAT_VOLA","COGNOME_NOME","CF","GRUPPO","SQUADRA","OBSOLETO"];
 const VOL_CAMPI_IMPORT = [
@@ -67,6 +79,7 @@ function volEta(dataIso){
 }
 function volChiave(vid, rid){ return vid + "|" + rid; }
 function volRequisitiAttivi(){ return _vol.requisiti.filter(r => r.attivo); }
+function volStatoReq(vid, rid){ const s = _vol.stato.get(volChiave(vid, rid)); return s ? s.stato : "MANCANTE"; }
 
 // Carica a blocchi di 1000 righe una query già ordinata (per le viste senza colonna id)
 async function volCaricaPaginato(creaQuery){
@@ -128,7 +141,7 @@ async function volCaricaDati(){
     sb.from("vol_sezioni").select("sezione, regione, ordine").order("ordine"),
     sb.from("vol_requisiti").select("*").order("ordine").order("id"),
     volCaricaPaginato(() => sb.from("vol_stato_requisiti")
-      .select("volontario_id, requisito_id, data, data_scadenza, origine, stato, documento_path, edizione")
+      .select(VOL_COLONNE_STATO)
       .order("volontario_id").order("requisito_id"))
   ]);
   const err = rv.error || rs.error || rr.error || rst.error;
@@ -177,8 +190,10 @@ function volDisegnaPagina(){
         <label>${escapeHtml(r.nome)}
           <select data-filtro-req="${r.id}">
             <option value="">indifferente</option>
-            <option value="ha" ${_volFiltro.req[r.id] === "ha" ? "selected" : ""}>ha (valido)</option>
-            <option value="non" ${_volFiltro.req[r.id] === "non" ? "selected" : ""}>non ha o scaduto</option>
+            ${[["REGOLA","in regola (valido o in scadenza)"], ["VALIDO","valido"], ["IN_SCADENZA","in scadenza"],
+               ...(r.prevede_aggiornamento ? [["DA_AGGIORNARE","da aggiornare"]] : []),
+               ["SCADUTO","scaduto"], ["MANCANTE","mancante"], ["NON_REGOLA","non in regola"], ["ANOMALIA","anomalia"]]
+              .map(([k, l]) => `<option value="${k}" ${_volFiltro.req[r.id] === k ? "selected" : ""}>${l}</option>`).join("")}
           </select>
         </label>`).join("")}
     </div>
@@ -187,6 +202,9 @@ function volDisegnaPagina(){
       <div class="modal-tabs vol-tabs">
         <span class="modal-tab ${_vol.vista === "elenco" ? "active" : ""}" data-vista="elenco">Elenco</span>
         <span class="modal-tab ${_vol.vista === "riepilogo" ? "active" : ""}" data-vista="riepilogo">Riepilogo</span>
+        ${volGestore() ? `
+        <span class="modal-tab ${_vol.vista === "richieste" ? "active" : ""}" data-vista="richieste">Richieste alle Sezioni</span>
+        <span class="modal-tab ${_vol.vista === "validare" ? "active" : ""}" data-vista="validare">Da validare <span class="vol-tab-badge" id="vol-badge-validare" hidden></span></span>` : ""}
       </div>
       <span class="vol-sp"></span>
       <button type="button" class="btn-add-mini" id="vol-btn-excel"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> Esporta Excel</button>
@@ -252,6 +270,7 @@ function volDisegnaPagina(){
   }
 
   volAggiornaVista();
+  if (volGestore()) volsAggiornaBadge();
 }
 
 // Regione → Sezione → Gruppo: le opzioni si restringono in cascata
@@ -332,10 +351,11 @@ function volFiltra(){
     if (a !== null && (v.eta === null || v.eta > a)) return false;
     if (q && !v._cerca.includes(q)) return false;
     for (const [rid, modo] of reqF){
-      const s = _vol.stato.get(volChiave(v.id, rid));
-      const ok = !!s && s.stato === "VALIDO";
-      if (modo === "ha" && !ok) return false;
-      if (modo === "non" && ok) return false;
+      const st = volStatoReq(v.id, rid);
+      const regola = st === "VALIDO" || st === "IN_SCADENZA";
+      if (modo === "REGOLA"){ if (!regola) return false; }
+      else if (modo === "NON_REGOLA"){ if (regola) return false; }
+      else if (st !== modo) return false;
     }
     return true;
   });
@@ -345,10 +365,10 @@ function volOrdina(lista){
   const { col, dir } = _volOrdine;
   const testo = (a, b) => String(a || "").localeCompare(String(b || ""), "it");
   const base = (a, b) => testo(a.cognome, b.cognome) || testo(a.nome, b.nome);
+  const PESI = { MANCANTE:0, ANOMALIA:1, SCADUTO:2, DA_AGGIORNARE:3, IN_SCADENZA:4, VALIDO:5 };
   const peso = (v, rid) => {
     const s = _vol.stato.get(volChiave(v.id, rid));
-    if (!s) return [0, ""];
-    return [s.stato === "VALIDO" ? 2 : 1, s.data || ""];
+    return s ? [PESI[s.stato] ?? 0, s.data_scadenza || s.data || ""] : [0, ""];
   };
   let cmp;
   if (col.startsWith("r")){
@@ -369,11 +389,21 @@ function volOrdina(lista){
 }
 
 function volAggiornaVista(){
-  const lista = volFiltra();
-  const conta = document.getElementById("vol-count");
-  if (conta) conta.textContent = `${lista.length} volontari visualizzati su ${_vol.volontari.length}`;
   const box = document.getElementById("vol-vista");
+  const conta = document.getElementById("vol-count");
   if (!box) return;
+  // schede richieste / validazione (volontari-sezioni.js): i filtri dell'elenco non si applicano
+  const sezioni = _vol.vista === "richieste" || _vol.vista === "validare";
+  document.querySelectorAll(".vol-ambiti, #page-content > .toolbar, #vol-req-filtri").forEach(el => el.classList.toggle("vol-nascosto", sezioni));
+  if (sezioni){
+    if (conta) conta.textContent = "";
+    if (!volGestore()){ _vol.vista = "elenco"; return volAggiornaVista(); }
+    if (_vol.vista === "richieste") volsRenderRichieste(box);
+    else volsRenderDaValidare(box);
+    return;
+  }
+  const lista = volFiltra();
+  if (conta) conta.textContent = `${lista.length} volontari visualizzati su ${_vol.volontari.length}`;
   if (_vol.vista === "riepilogo") box.innerHTML = volHtmlRiepilogo(lista);
   else volRenderTabella(box, volOrdina(lista));
 }
@@ -426,13 +456,16 @@ function volRenderTabella(box, lista){
       </table>
     </div>
     <p class="vol-legenda">
-      <span class="vol-req ok vol-leg">✓</span> valido · <span class="vol-req scad vol-leg">✓</span> scaduto ·
-      <span class="vol-req ok vol-leg"><i class="ti ti-school" aria-hidden="true"></i></span> dalla Scuola di Formazione ·
-      clic su una cella per i dettagli${volPuoModificare() ? " o per spuntare" : ""}.
+      <span class="vol-req VALIDO vol-leg">✓</span> valido · <span class="vol-req IN_SCADENZA vol-leg">✓</span> in scadenza ·
+      <span class="vol-req DA_AGGIORNARE vol-leg"><i class="ti ti-refresh" aria-hidden="true"></i></span> da aggiornare ·
+      <span class="vol-req SCADUTO vol-leg">✓</span> scaduto · <span class="vol-req ANOMALIA vol-leg">!</span> anomalia ·
+      <span class="vol-req VALIDO vol-leg"><i class="ti ti-school" aria-hidden="true"></i></span> dalla Scuola di Formazione ·
+      clic su una cella per lo storico${volPuoModificare() ? " o per aggiungere una data" : ""}.
     </p>`;
   const wrap = box.querySelector(".vol-wrap");
   wrap.scrollLeft = scroll[0]; wrap.scrollTop = scroll[1];
-  wrap.addEventListener("scroll", volChiudiPopover, { passive:true });
+  // dopo il ripristino dello scroll (che genera anch'esso un evento "scroll")
+  setTimeout(() => wrap.addEventListener("scroll", volChiudiPopover, { passive:true }), 150);
 
   box.querySelector("thead").addEventListener("click", e => {
     const t = e.target.closest("[data-ord]");
@@ -451,14 +484,17 @@ function volRenderTabella(box, lista){
 function volHtmlCella(v, r){
   const s = _vol.stato.get(volChiave(v.id, r.id));
   if (!s) return `<td class="vol-req" data-r="${r.id}"></td>`;
-  const scaduto = s.stato === "SCADUTO";
-  const icona = s.origine === "SCUOLA" ? `<i class="ti ti-school" aria-label="Scuola di Formazione"></i>` : "✓";
+  const icona = s.stato === "ANOMALIA" ? "!"
+    : s.stato === "DA_AGGIORNARE" ? `<i class="ti ti-refresh" aria-label="da aggiornare"></i>`
+    : s.origine === "SCUOLA" ? `<i class="ti ti-school" aria-label="Scuola di Formazione"></i>` : "✓";
   const titolo = [
-    s.origine === "SCUOLA" ? "Scuola di Formazione" : "Spunta manuale",
-    s.data ? "conseguito il " + formatDataIt(s.data) : "senza data",
-    s.data_scadenza ? (scaduto ? "scaduto il " : "scade il ") + formatDataIt(s.data_scadenza) : ""
-  ].filter(Boolean).join(" · ");
-  return `<td class="vol-req ${scaduto ? "scad" : "ok"}" data-r="${r.id}" title="${escapeHtml(titolo)}">${icona}</td>`;
+    VOL_STATI_REQ[s.stato] || s.stato,
+    "Base: " + (s.data_base ? formatDataIt(s.data_base) : (s.stato === "ANOMALIA" ? "mancante" : "senza data")),
+    s.ultimo_aggiornamento ? "Ultimo aggiornamento: " + formatDataIt(s.ultimo_aggiornamento) : "",
+    s.data_scadenza ? "Scadenza: " + formatDataIt(s.data_scadenza) : "Non scade",
+    s.origine === "SCUOLA" ? "Dalla Scuola di Formazione" : ""
+  ].filter(Boolean).join("\n");
+  return `<td class="vol-req ${s.stato}" data-r="${r.id}" title="${escapeHtml(titolo)}">${icona}</td>`;
 }
 
 /* ---------- Popover spunta ---------- */
@@ -472,86 +508,116 @@ async function volApriPopover(td, vid, rid){
   const v = _vol.perId.get(vid);
   const r = _vol.requisiti.find(x => x.id === rid);
   if (!v || !r) return;
-  const s = _vol.stato.get(volChiave(vid, rid));
 
   const pop = document.createElement("div");
   pop.id = "vol-popover";
   pop.className = "vol-popover";
   const rect = td.getBoundingClientRect();
   pop.style.top = (rect.bottom + 4) + "px";
-  pop.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 300)) + "px";
+  pop.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 340)) + "px";
   pop.innerHTML = `
     <div class="vol-pop-t">${escapeHtml(r.nome)}</div>
     <div class="vol-pop-sub">${escapeHtml(v.cognome)} ${escapeHtml(v.nome)}</div>
+    <div class="vol-pop-stato"></div>
     <div id="vol-pop-corpo"><div class="loading-spin" style="padding:10px;">…</div></div>`;
   document.body.appendChild(pop);
+  volAggiornaStatoPopover(pop, v, r);
   // vicino al fondo dello schermo: lo apro sopra la cella
   const posiziona = () => {
     const h = pop.offsetHeight;
     pop.style.top = (rect.bottom + 4 + h > window.innerHeight ? Math.max(8, rect.top - 4 - h) : rect.bottom + 4) + "px";
   };
   new ResizeObserver(posiziona).observe(pop);
+  await volRenderStoricoPopover(pop, v, r);
+}
+
+function volAggiornaStatoPopover(pop, v, r){
+  const s = _vol.stato.get(volChiave(v.id, r.id));
+  const st = s ? s.stato : "MANCANTE";
+  pop.querySelector(".vol-pop-stato").innerHTML = `<span class="vol-chip ${st}">${VOL_STATI_REQ[st]}</span>` +
+    (s?.data_base ? ` base <b>${formatDataIt(s.data_base)}</b>` : "") +
+    (s?.ultimo_aggiornamento ? ` · agg. <b>${formatDataIt(s.ultimo_aggiornamento)}</b>` : "") +
+    (s?.data_scadenza ? ` · scade <b>${formatDataIt(s.data_scadenza)}</b>` : "");
+}
+
+// Storico degli eventi (manuali, Scuola, Sezioni) + aggiunta di Base / Aggiornamento
+async function volRenderStoricoPopover(pop, v, r){
   const corpo = pop.querySelector("#vol-pop-corpo");
-  const scad = s?.data_scadenza ? `<div>${s.stato === "SCADUTO" ? "Scaduto il" : "Scade il"} <b>${formatDataIt(s.data_scadenza)}</b></div>` : "";
-
-  if (s && s.origine === "SCUOLA"){
-    corpo.innerHTML = `
-      <div class="vol-pop-info"><i class="ti ti-school" aria-hidden="true"></i> Dalla Scuola di Formazione</div>
-      ${s.edizione ? `<div>Corso: <b>${escapeHtml(s.edizione)}</b></div>` : ""}
-      <div>Conseguito il <b>${s.data ? formatDataIt(s.data) : "—"}</b></div>
-      ${scad}
-      ${s.documento_path ? `<div style="margin-top:6px;"><a href="#" role="button" data-apri-file="${escapeHtml(s.documento_path)}" data-bucket="${STORAGE_BUCKET_DOC_VOLONTARI}"><i class="ti ti-file-certificate" aria-hidden="true"></i> Apri attestato</a></div>` : ""}
-      <p class="vol-pop-nota">Sola lettura: si aggiorna dagli attestati della Scuola di Formazione.</p>`;
-    attaccaListenerApriFile(corpo);
-    return;
-  }
-
-  const { data: man, error } = await sb.from("vol_requisiti_volontario")
-    .select("conseguito, data_conseguimento, note")
-    .eq("volontario_id", vid).eq("requisito_id", rid).maybeSingle();
+  const { data, error } = await sb.rpc("vol_eventi_f", { p_volontario: v.id });
   if (!document.body.contains(pop)) return;
   if (error){ corpo.innerHTML = `<p>Errore: ${escapeHtml(error.message)}</p>`; return; }
+  const eventi = (data || []).filter(e => e.requisito_id === r.id)
+    .sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
+  const puo = volPuoModificare();
+  const oggi = new Date().toISOString().slice(0, 10);
 
-  if (!volPuoModificare()){
-    corpo.innerHTML = man && man.conseguito
-      ? `<div>Conseguito il <b>${man.data_conseguimento ? formatDataIt(man.data_conseguimento) : "—"}</b></div>${scad}${man.note ? `<div>Note: ${escapeHtml(man.note)}</div>` : ""}`
-      : `<div>Non conseguito.</div>`;
-    return;
-  }
-
-  const conseguito = man ? man.conseguito : true; // clic su cella vuota = voglio spuntare
   corpo.innerHTML = `
-    <label class="vol-check" style="margin:6px 0;"><input type="checkbox" id="vol-pop-ok" ${conseguito ? "checked" : ""}> Conseguito</label>
-    <div class="form-field"><label>Data conseguimento</label><input type="date" id="vol-pop-data" value="${escapeHtml(man?.data_conseguimento || "")}"></div>
-    ${r.validita_mesi ? `<p class="vol-pop-nota">Vale ${r.validita_mesi} mesi: senza data non si calcola la scadenza.</p>` : ""}
-    <div class="form-field"><label>Note</label><textarea id="vol-pop-note" rows="2">${escapeHtml(man?.note || "")}</textarea></div>
-    <div class="vol-pop-az">
-      <button type="button" class="btn-cancel" id="vol-pop-annulla">Annulla</button>
-      <button type="button" class="btn-save" id="vol-pop-salva">Salva</button>
-    </div>`;
-  corpo.querySelector("#vol-pop-annulla").addEventListener("click", volChiudiPopover);
-  corpo.querySelector("#vol-pop-salva").addEventListener("click", async (ev) => {
-    const btn = ev.currentTarget;
-    const data = corpo.querySelector("#vol-pop-data").value || null;
-    if (data && data > new Date().toISOString().slice(0, 10)){ alert("La data di conseguimento non può essere nel futuro."); return; }
+    ${eventi.length ? `<ul class="vol-storico">${eventi.map(e => `
+      <li class="${e.annullato ? "annullato" : ""}">
+        <div><b>${e.tipo === "BASE" ? "Base" : "Aggiornamento"}</b> · ${e.data ? formatDataIt(e.data) : "senza data"}
+          <span class="vol-origine">${e.origine === "SCUOLA" ? `<i class="ti ti-school" aria-hidden="true"></i> ` : ""}${escapeHtml(VOL_ORIGINI[e.origine] || e.origine)}</span></div>
+        ${e.edizione ? `<div class="vol-pop-nota">Corso: ${escapeHtml(e.edizione)}</div>` : ""}
+        ${e.note ? `<div class="vol-pop-nota">${escapeHtml(e.note)}</div>` : ""}
+        ${e.creato_da ? `<div class="vol-pop-nota">${e.origine === "MANUALE" ? "Inserito" : "Approvato"} da ${escapeHtml(e.creato_da)}</div>` : ""}
+        ${e.annullato ? `<div class="vol-pop-nota">Annullato: ${escapeHtml(e.motivo_annullamento || "")}</div>` : ""}
+        <div class="vol-ev-az">
+          ${e.documento_path ? `<a href="#" role="button" data-apri-file="${escapeHtml(e.documento_path)}" data-bucket="${STORAGE_BUCKET_DOC_VOLONTARI}">Apri attestato</a>` : ""}
+          ${puo && e.evento_id && !e.annullato ? `<button type="button" class="row-del" data-annulla="${e.evento_id}">Annulla</button>` : ""}
+        </div>
+      </li>`).join("")}</ul>` : `<p class="vol-pop-nota" style="margin-top:0;">Nessun evento registrato.</p>`}
+    ${eventi.some(e => e.origine === "SCUOLA") ? `<p class="vol-pop-nota">Gli eventi della Scuola di Formazione arrivano dagli attestati e non si modificano da qui.</p>` : ""}
+    ${puo ? `
+      <form class="vol-ev-form" id="vol-ev-form">
+        <div class="vol-ev-riga">
+          <select name="tipo" aria-label="Tipo">
+            <option value="BASE">Base</option>
+            ${r.prevede_aggiornamento ? `<option value="AGGIORNAMENTO">Aggiornamento</option>` : ""}
+          </select>
+          <input type="date" name="data" required max="${oggi}" min="1950-01-01" aria-label="Data">
+        </div>
+        <input name="note" maxlength="500" placeholder="Note (facoltative)">
+        <div class="vol-pop-az">
+          <button type="button" class="btn-cancel" id="vol-pop-chiudi">Chiudi</button>
+          <button type="submit" class="btn-save">Aggiungi</button>
+        </div>
+      </form>` : ""}`;
+  attaccaListenerApriFile(corpo);
+
+  corpo.querySelectorAll("[data-annulla]").forEach(b => b.addEventListener("click", async () => {
+    const motivo = prompt("Motivo dell'annullamento (l'evento resta nello storico come annullato):");
+    if (!motivo || !motivo.trim()) return;
+    const { error: errA } = await sb.rpc("vol_annulla_evento", { p_id: Number(b.dataset.annulla), p_motivo: motivo.trim() });
+    if (errA){ alert("Errore: " + errA.message); return; }
+    await volDopoModificaEventi(pop, v, r);
+  }));
+  const chiudi = corpo.querySelector("#vol-pop-chiudi");
+  if (chiudi) chiudi.addEventListener("click", volChiudiPopover);
+  const f = corpo.querySelector("#vol-ev-form");
+  if (f) f.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const data = f.data.value;
+    if (!data || data > oggi){ alert("Indica una data valida, non nel futuro."); return; }
+    const btn = f.querySelector("button[type=submit]");
     btn.disabled = true;
-    const { error: errS } = await sb.from("vol_requisiti_volontario").upsert({
-      volontario_id: vid, requisito_id: rid,
-      conseguito: corpo.querySelector("#vol-pop-ok").checked,
-      data_conseguimento: data,
-      note: corpo.querySelector("#vol-pop-note").value.trim() || null
-    }, { onConflict:"volontario_id,requisito_id" });
-    if (errS){ btn.disabled = false; alert("Errore: " + errS.message); return; }
-    await volRicaricaStatoVolontario(vid);
-    volChiudiPopover();
-    volAggiornaVista();
+    const { error: errI } = await sb.from("vol_eventi_requisito").insert({
+      volontario_id: v.id, requisito_id: r.id, tipo: f.tipo.value, data, origine: "MANUALE",
+      note: f.note.value.trim() || null
+    });
+    if (errI){ btn.disabled = false; alert("Errore: " + errI.message); return; }
+    await volDopoModificaEventi(pop, v, r);
   });
 }
 
+async function volDopoModificaEventi(pop, v, r){
+  await volRicaricaStatoVolontario(v.id);
+  volAggiornaVista();
+  if (!document.body.contains(pop)) return;
+  volAggiornaStatoPopover(pop, v, r);
+  await volRenderStoricoPopover(pop, v, r);
+}
+
 async function volRicaricaStatoVolontario(vid){
-  const { data, error } = await sb.from("vol_stato_requisiti")
-    .select("volontario_id, requisito_id, data, data_scadenza, origine, stato, documento_path, edizione")
-    .eq("volontario_id", vid);
+  const { data, error } = await sb.from("vol_stato_requisiti").select(VOL_COLONNE_STATO).eq("volontario_id", vid);
   if (error){ alert("Spunta salvata, ma non riesco a ricaricare la riga: " + error.message); return; }
   _vol.requisiti.forEach(r => _vol.stato.delete(volChiave(vid, r.id)));
   (data || []).forEach(s => _vol.stato.set(volChiave(s.volontario_id, s.requisito_id), s));
@@ -565,10 +631,12 @@ function volHtmlRiepilogo(lista){
 
   const conta = (vols) => {
     const n = {};
-    req.forEach(r => { n[r.id] = 0; });
+    req.forEach(r => { n[r.id] = { regola:0, scad:0, agg:0 }; });
     vols.forEach(v => req.forEach(r => {
-      const s = _vol.stato.get(volChiave(v.id, r.id));
-      if (s && s.stato === "VALIDO") n[r.id]++;
+      const st = volStatoReq(v.id, r.id);
+      if (st === "VALIDO" || st === "IN_SCADENZA") n[r.id].regola++;
+      if (st === "IN_SCADENZA") n[r.id].scad++;
+      if (st === "DA_AGGIORNARE") n[r.id].agg++;
     }));
     return n;
   };
@@ -578,9 +646,11 @@ function volHtmlRiepilogo(lista){
     const cl = pct >= 90 ? "alto" : pct >= 50 ? "medio" : "basso";
     return `<td class="vol-pct ${cl}"><b>${pct}%</b><small>${n}/${tot}</small></td>`;
   };
+  const num = (n, cl) => `<td class="vol-num ${n ? cl : ""}">${n || "—"}</td>`;
   const riga = (nome, vols, classe) => {
     const n = conta(vols);
-    return `<tr class="${classe}"><td class="vol-f1">${escapeHtml(nome)}</td><td class="vol-pct-tot">${vols.length}</td>${req.map(r => cella(n[r.id], vols.length)).join("")}</tr>`;
+    return `<tr class="${classe}"><td class="vol-f1">${escapeHtml(nome)}</td><td class="vol-pct-tot">${vols.length}</td>${req.map(r =>
+      cella(n[r.id].regola, vols.length) + num(n[r.id].scad, "IN_SCADENZA") + (r.prevede_aggiornamento ? num(n[r.id].agg, "DA_AGGIORNARE") : "")).join("")}</tr>`;
   };
 
   let corpo = "";
@@ -598,11 +668,15 @@ function volHtmlRiepilogo(lista){
   return `
     <div class="vol-wrap">
       <table class="vol-tab vol-rie">
-        <thead><tr><th class="vol-f1">Sezione</th><th>Volontari</th>${req.map(r => `<th class="vol-th-req">${escapeHtml(r.nome)}${r.obbligatorio ? " *" : ""}</th>`).join("")}</tr></thead>
+        <thead>
+          <tr><th class="vol-f1">Sezione</th><th>Volontari</th>${req.map(r =>
+            `<th class="vol-th-req vol-th-gruppo" colspan="${r.prevede_aggiornamento ? 3 : 2}">${escapeHtml(r.nome)}${r.obbligatorio ? " *" : ""}</th>`).join("")}</tr>
+          <tr class="vol-th-sotto"><th class="vol-f1"></th><th></th>${req.map(r => `<th>In regola</th><th>In scad.</th>${r.prevede_aggiornamento ? "<th>Da agg.</th>" : ""}`).join("")}</tr>
+        </thead>
         <tbody>${corpo}</tbody>
       </table>
     </div>
-    <p class="vol-legenda">Percentuale e numero di volontari in regola (requisito valido e non scaduto), sui volontari visualizzati con i filtri attivi.</p>`;
+    <p class="vol-legenda">In regola = valido o in scadenza. Percentuali sui volontari visualizzati con i filtri attivi.</p>`;
 }
 
 /* ---------- Export Excel (vista filtrata) ---------- */
@@ -610,13 +684,22 @@ function volEsportaExcel(){
   const lista = volOrdina(volFiltra());
   if (!lista.length){ alert("Nessun volontario da esportare con questi filtri."); return; }
   const req = volRequisitiAttivi();
-  const intest = ["Cognome","Nome","Codice fiscale","Regione","Sezione","Gruppo","Squadra","Data nascita","Età","Stato", ...req.map(r => r.nome)];
+  const intest = ["Cognome","Nome","Codice fiscale","Regione","Sezione","Gruppo","Squadra","Data nascita","Età","Stato"];
+  req.forEach(r => {
+    if (r.prevede_aggiornamento) intest.push(`${r.nome} – Base`, `${r.nome} – Ult. aggiornamento`, `${r.nome} – Scadenza`, `${r.nome} – Stato`);
+    else intest.push(r.nome);
+  });
+  const d = x => x ? formatDataIt(x) : "";
   const righe = lista.map(v => {
     const riga = [v.cognome, v.nome, v.cf, v.regione, v.sezione, v.gruppo || "", v.squadra || "",
-      v.data_nascita ? formatDataIt(v.data_nascita) : "", v.eta ?? "", VOL_STATI[v.stato] || v.stato];
+      d(v.data_nascita), v.eta ?? "", VOL_STATI[v.stato] || v.stato];
     req.forEach(r => {
       const s = _vol.stato.get(volChiave(v.id, r.id));
-      riga.push(s ? (s.data ? formatDataIt(s.data) : "SI") : "");
+      if (r.prevede_aggiornamento){
+        riga.push(d(s?.data_base), d(s?.ultimo_aggiornamento), d(s?.data_scadenza), VOL_STATI_REQ[s ? s.stato : "MANCANTE"]);
+      } else {
+        riga.push(s && s.stato !== "ANOMALIA" ? (s.data ? formatDataIt(s.data) : "SI") : "");
+      }
     });
     return riga;
   });
@@ -672,7 +755,7 @@ function volRenderListaRequisiti(inModifica){
     ${inModifica === null ? `<div class="storico-toolbar"><button class="btn-add-mini" id="vol-req-nuovo">+ Nuovo corso o abilitazione</button></div>` : ""}
     ${lista.length ? `
     <table class="storico-table">
-      <thead><tr><th>Ordine</th><th>Nome</th><th>Tipo</th><th>Obbl.</th><th>Validità</th><th>Corso Scuola collegato</th><th>Attivo</th><th></th></tr></thead>
+      <thead><tr><th>Ordine</th><th>Nome</th><th>Tipo</th><th>Obbl.</th><th>Validità</th><th>Aggiornamento</th><th>Corso Scuola collegato</th><th>Attivo</th><th></th></tr></thead>
       <tbody>${lista.map((r, i) => `
         <tr style="${r.attivo ? "" : "opacity:.55;"}">
           <td style="white-space:nowrap;">
@@ -682,7 +765,8 @@ function volRenderListaRequisiti(inModifica){
           <td>${escapeHtml(r.nome)}</td>
           <td>${r.tipo === "CORSO" ? "Corso" : "Abilitazione"}</td>
           <td>${r.obbligatorio ? "Sì" : "—"}</td>
-          <td>${r.validita_mesi ? r.validita_mesi + " mesi" : "non scade"}</td>
+          <td>${r.validita_mesi ? r.validita_mesi + " mesi" : "non scade"}<br><small style="color:var(--grigio-600);">preavviso ${r.preavviso_giorni ?? 90} gg</small></td>
+          <td>${r.prevede_aggiornamento ? `Sì${r.validita_aggiornamento_mesi ? ` · ${r.validita_aggiornamento_mesi} mesi` : ""}${r.corso_aggiornamento_id ? `<br><small style="color:var(--grigio-600);">${escapeHtml(corso(r.corso_aggiornamento_id))}</small>` : ""}` : "—"}</td>
           <td>${escapeHtml(corso(r.corso_formazione_id)) || "—"}</td>
           <td><input type="checkbox" data-attivo="${r.id}" ${r.attivo ? "checked" : ""}></td>
           <td><button class="row-del" style="color:var(--blu-500);" data-modifica="${r.id}">Modifica</button></td>
@@ -703,9 +787,17 @@ function volRenderListaRequisiti(inModifica){
   }));
   const f = body.querySelector("#vol-req-form");
   if (f){
+    const mostraAgg = () => f.querySelectorAll(".vol-campo-agg").forEach(x => { x.style.display = f.prevede_aggiornamento.checked ? "" : "none"; });
+    f.prevede_aggiornamento.addEventListener("change", mostraAgg);
+    mostraAgg();
     f.addEventListener("submit", e => { e.preventDefault(); volSalvaRequisito(f, inModifica === "nuovo" ? null : inModifica); });
     f.querySelector("#vol-req-annulla").addEventListener("click", () => volRenderListaRequisiti(null));
   }
+}
+
+function volOpzioniCorsi(scelto){
+  return `<option value="">— nessun collegamento —</option>` +
+    (_volCatalogoCorsi || []).map(c => `<option value="${c.id}" ${scelto === c.id ? "selected" : ""}>${escapeHtml(c.codice)}${c.descrizione ? " – " + escapeHtml(c.descrizione) : ""}</option>`).join("");
 }
 
 function volHtmlFormRequisito(r){
@@ -721,11 +813,14 @@ function volHtmlFormRequisito(r){
         <div class="form-field"><label>Validità in mesi (vuoto = non scade)</label><input name="validita_mesi" type="number" min="1" max="600" value="${r?.validita_mesi ?? ""}"></div>
         <div class="form-field"><label>Obbligatorio</label>
           <div class="form-checkbox"><input type="checkbox" name="obbligatorio" ${r?.obbligatorio ? "checked" : ""}><label style="margin:0;">Requisito obbligatorio</label></div></div>
-        <div class="form-field full"><label>Corso della Scuola di Formazione (spunta automatica dagli attestati)</label>
-          <select name="corso_formazione_id">
-            <option value="">— nessun collegamento —</option>
-            ${(_volCatalogoCorsi || []).map(c => `<option value="${c.id}" ${r?.corso_formazione_id === c.id ? "selected" : ""}>${escapeHtml(c.codice)}${c.descrizione ? " – " + escapeHtml(c.descrizione) : ""}</option>`).join("")}
-          </select></div>
+        <div class="form-field"><label>Preavviso "in scadenza" (giorni)</label><input name="preavviso_giorni" type="number" min="0" max="730" value="${r?.preavviso_giorni ?? 90}"></div>
+        <div class="form-field full"><label>Corso della Scuola di Formazione (evento Base automatico dagli attestati)</label>
+          <select name="corso_formazione_id">${volOpzioniCorsi(r?.corso_formazione_id)}</select></div>
+        <div class="form-field full"><label>Aggiornamento</label>
+          <div class="form-checkbox"><input type="checkbox" name="prevede_aggiornamento" id="vol-req-prevede" ${r?.prevede_aggiornamento ? "checked" : ""}><label for="vol-req-prevede" style="margin:0;">Quando scade si rinnova con un corso di aggiornamento (non si rifà da capo)</label></div></div>
+        <div class="form-field vol-campo-agg"><label>Validità dell'aggiornamento in mesi (vuoto = come sopra)</label><input name="validita_aggiornamento_mesi" type="number" min="1" max="600" value="${r?.validita_aggiornamento_mesi ?? ""}"></div>
+        <div class="form-field vol-campo-agg"><label>Corso di aggiornamento della Scuola (evento Aggiornamento automatico)</label>
+          <select name="corso_aggiornamento_id">${volOpzioniCorsi(r?.corso_aggiornamento_id)}</select></div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn-cancel" id="vol-req-annulla">Annulla</button>
@@ -741,6 +836,10 @@ async function volSalvaRequisito(f, id){
     validita_mesi: f.validita_mesi.value ? Number(f.validita_mesi.value) : null,
     obbligatorio: f.obbligatorio.checked,
     corso_formazione_id: f.corso_formazione_id.value ? Number(f.corso_formazione_id.value) : null,
+    preavviso_giorni: f.preavviso_giorni.value === "" ? 90 : Number(f.preavviso_giorni.value),
+    prevede_aggiornamento: f.prevede_aggiornamento.checked,
+    validita_aggiornamento_mesi: f.prevede_aggiornamento.checked && f.validita_aggiornamento_mesi.value ? Number(f.validita_aggiornamento_mesi.value) : null,
+    corso_aggiornamento_id: f.prevede_aggiornamento.checked && f.corso_aggiornamento_id.value ? Number(f.corso_aggiornamento_id.value) : null,
   };
   if (!payload.nome){ alert("Inserisci il nome."); return; }
   let error;

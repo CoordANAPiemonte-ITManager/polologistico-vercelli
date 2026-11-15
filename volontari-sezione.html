@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0b2545">
+<title>Corsi e abilitazioni – 1° RGPT</title>
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.48.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="stile.css">
+<!--
+  Pagina pubblica per le Sezioni: nessun login, il link contiene il token (?t=).
+  Parla solo con la Edge Function vol-pub (azioni apri / salva / invia):
+  il token è controllato lato server; la Sezione vede solo i propri volontari
+  attivi (CF ridotto alle ultime 4 cifre). Quanto inviato diventa una proposta
+  che il Polo Logistico deve approvare: nulla entra nei dati in automatico.
+-->
+<style>
+  body{ background:var(--grigio-100); }
+  .pagina{ max-width:720px; margin:0 auto; padding:16px 14px 120px; }
+  .testata{
+    background:linear-gradient(135deg,var(--blu-900),var(--blu-500)); color:#fff;
+    border-radius:var(--radius); padding:16px 18px; margin-bottom:14px;
+    display:flex; gap:14px; align-items:flex-start;
+  }
+  .testata img{ width:54px; height:54px; border-radius:12px; background:#fff; flex-shrink:0; }
+  .testata .org{ font-size:10.5px; letter-spacing:.4px; text-transform:uppercase; color:#b9cbe4; }
+  .testata h1{ font-size:19px; margin:3px 0 6px; line-height:1.25; }
+  .testata .riga{ font-size:13px; color:#e6edf7; margin-top:2px; }
+  .testata .sezione{ display:inline-block; margin-top:8px; background:rgba(255,255,255,.16); padding:5px 11px; border-radius:999px; font-weight:700; font-size:13px; }
+  .scheda{ background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
+  .scheda h2{ font-size:15px; margin:0 0 8px; color:var(--blu-900); }
+  .aiuto{ font-size:12.5px; color:var(--grigio-600); margin:0 0 8px; line-height:1.45; }
+  .aiuto ul{ margin:6px 0 0; padding-left:18px; }
+  .nota-master{ background:#e8eef7; color:var(--blu-700); border-radius:8px; padding:10px 12px; font-size:13px; margin-top:10px; white-space:pre-wrap; }
+  .messaggio{ border-radius:var(--radius); padding:16px; font-size:14px; line-height:1.5; margin-bottom:14px; }
+  .messaggio h2{ font-size:16px; margin:0 0 6px; }
+  .msg-errore{ background:var(--rosso-bg); color:var(--rosso); }
+  .msg-ok{ background:var(--verde-bg); color:var(--verde); }
+  .msg-info{ background:#e8eef7; color:var(--blu-500); }
+  .cerca{ width:100%; font-size:16px; padding:11px 12px; border:1px solid var(--grigio-400); border-radius:8px; margin-bottom:10px; font-family:var(--font); }
+  .vol{ border:1px solid var(--grigio-200); border-radius:10px; padding:12px; margin-bottom:10px; background:#fff; }
+  .vol.mod{ border-color:var(--blu-300); box-shadow:0 0 0 2px rgba(58,110,165,.15); }
+  .vol .nome{ font-weight:700; font-size:15px; color:var(--blu-900); }
+  .vol .dett{ font-size:12px; color:var(--grigio-600); margin-top:2px; }
+  .req{ border-top:1px solid var(--grigio-100); padding-top:10px; margin-top:10px; }
+  .req-t{ display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; font-weight:600; color:var(--grigio-800); }
+  .chip{ display:inline-block; padding:3px 9px; border-radius:999px; font-size:11.5px; font-weight:700; }
+  .chip.VALIDO{ background:var(--verde-bg); color:var(--verde); }
+  .chip.IN_SCADENZA{ background:#fff4c2; color:#8a6d00; }
+  .chip.DA_AGGIORNARE{ background:#fde6cf; color:#c25e00; }
+  .chip.SCADUTO{ background:var(--rosso-bg); color:var(--rosso); }
+  .chip.ANOMALIA{ background:var(--grigio-200); color:var(--grigio-800); }
+  .chip.MANCANTE{ background:var(--grigio-100); color:var(--grigio-600); border:1px solid var(--grigio-200); }
+  .attuale{ font-size:11.5px; color:var(--grigio-600); margin-top:3px; }
+  .date{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .date label{ font-size:11.5px; font-weight:600; color:var(--grigio-600); display:block; margin-bottom:3px; }
+  .date input{ width:100%; font-size:16px; padding:8px 9px; border:1px solid var(--grigio-400); border-radius:8px; font-family:var(--font); background:#fff; }
+  .date input:disabled, textarea:disabled{ background:var(--grigio-100); color:var(--grigio-800); }
+  textarea{ width:100%; font-size:15px; padding:9px 10px; border:1px solid var(--grigio-400); border-radius:8px; font-family:var(--font); resize:vertical; }
+  .b-nota{ background:none; border:none; color:var(--blu-500); font-size:13px; font-weight:600; padding:8px 0 0; cursor:pointer; }
+  .segn{ display:flex; gap:8px; margin-bottom:8px; }
+  .segn textarea{ flex:1; }
+  .segn button{ border:none; background:none; color:var(--rosso); font-size:20px; cursor:pointer; }
+  .b-agg{ border:1.5px dashed var(--grigio-400); background:#fff; color:var(--blu-500); border-radius:8px; padding:10px; width:100%; font-weight:600; font-size:14px; cursor:pointer; }
+  .barra{ position:fixed; left:0; right:0; bottom:0; background:#fff; box-shadow:0 -2px 10px rgba(11,37,69,.1); padding:10px 14px calc(10px + env(safe-area-inset-bottom)); }
+  .barra .dentro{ max-width:720px; margin:0 auto; display:flex; gap:8px; align-items:center; }
+  .barra .stato{ font-size:11.5px; color:var(--grigio-600); flex:1; min-width:0; }
+  .grande{ border:none; border-radius:9px; padding:13px 16px; font-size:15px; font-weight:700; cursor:pointer; font-family:var(--font); }
+  .primario{ background:var(--blu-500); color:#fff; }
+  .primario:disabled{ opacity:.6; }
+  .secondario{ background:#fff; color:var(--grigio-800); border:1.5px solid var(--grigio-400); }
+  .velo{ position:fixed; inset:0; background:rgba(11,37,69,.5); display:flex; align-items:flex-end; justify-content:center; z-index:50; }
+  .finestra{ background:#fff; width:100%; max-width:520px; border-radius:14px 14px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); }
+  .finestra h2{ margin:0 0 8px; font-size:17px; color:var(--blu-900); }
+  .finestra label{ display:block; font-size:12.5px; font-weight:600; margin:10px 0 4px; color:var(--grigio-800); }
+  .finestra input{ width:100%; font-size:16px; padding:11px 12px; border:1px solid var(--grigio-400); border-radius:8px; font-family:var(--font); }
+  .finestra .azioni{ display:flex; gap:8px; margin-top:16px; }
+  .finestra .azioni button{ flex:1; }
+  .caricamento{ text-align:center; color:var(--grigio-600); padding:50px 0; font-size:14px; }
+  .piede{ text-align:center; font-size:11px; color:var(--grigio-600); margin-top:18px; }
+  @media (max-width:420px){ .date{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="pagina">
+  <div id="app"><div class="caricamento">Caricamento…</div></div>
+  <div class="piede">Protezione Civile ANA · 1° Raggruppamento · Polo Logistico di Vercelli</div>
+</div>
+<div class="barra" id="barra" style="display:none;">
+  <div class="dentro">
+    <span class="stato" id="stato-bozza"></span>
+    <button class="grande secondario" id="btn-salva">Salva bozza</button>
+    <button class="grande primario" id="btn-invia">Invia</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const FUNZIONE = "https://hzovguvwnadoptwrdyub.supabase.co/functions/v1/vol-pub";
+  const STATI = { VALIDO:"Valido", IN_SCADENZA:"In scadenza", DA_AGGIORNARE:"Da aggiornare", SCADUTO:"Scaduto", ANOMALIA:"Da verificare", MANCANTE:"Non risulta" };
+  const ERRORI = {
+    TOKEN_NON_VALIDO: "Il link non è valido. Controlla di averlo copiato per intero, oppure chiedine uno nuovo al Polo Logistico.",
+    RICHIESTA_REVOCATA: "Questa richiesta è stata annullata dal Polo Logistico.",
+    RICHIESTA_SCADUTA: "Il link è scaduto. Chiedi una proroga al Polo Logistico.",
+    RICHIESTA_NON_APERTA: "Questa richiesta è già stata inviata e non si può più modificare.",
+    NOME_MANCANTE: "Scrivi il nome di chi ha compilato.",
+    DATI_NON_VALIDI: "I dati inviati non sono validi. Ricarica la pagina e riprova.",
+    VOLONTARIO_NON_VALIDO: "Un volontario non risulta più attivo nella Sezione. Ricarica la pagina e riprova.",
+    REQUISITO_NON_VALIDO: "Uno dei corsi non fa parte di questa richiesta. Ricarica la pagina e riprova.",
+    DATA_NON_VALIDA: "C'è una data non valida: le date non possono essere nel futuro né prima del 1950.",
+    troppe_richieste: "Troppe richieste in poco tempo. Aspetta qualche minuto e riprova.",
+  };
+
+  const token = new URLSearchParams(location.search).get("t") || "";
+  const app = document.getElementById("app");
+  let D = null;            // dati della richiesta
+  let modifiche = false;   // bozza non salvata
+  let filtro = "";
+  const oggi = new Date().toISOString().slice(0, 10);
+
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  const dataIt = iso => iso ? new Date(String(iso).slice(0, 10) + "T00:00:00").toLocaleDateString("it-IT") : "—";
+  const dataOraIt = iso => iso ? new Date(iso).toLocaleString("it-IT", { dateStyle:"short", timeStyle:"short" }) : "";
+
+  async function chiama(azione, dati){
+    const res = await fetch(FUNZIONE, { method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(Object.assign({ azione, token }, dati || {})) });
+    let j = {};
+    try { j = await res.json(); } catch(e){ /* risposta vuota */ }
+    if (!res.ok || !j.ok) throw new Error(j.errore || "errore_interno");
+    return j.dati;
+  }
+  const testoErrore = e => ERRORI[e.message] || "Si è verificato un errore. Riprova tra poco; se continua, avvisa il Polo Logistico.";
+
+  function errore(titolo, testo){
+    document.getElementById("barra").style.display = "none";
+    app.innerHTML = `<div class="messaggio msg-errore"><h2>${esc(titolo)}</h2>${esc(testo)}</div>`;
+  }
+
+  // ---------- bozza: { righe:[{volontario_id, note, requisiti:[{requisito_id, data_base, data_agg}]}], segnalazioni:[{testo}] }
+  function bozzaIniziale(){
+    const b = D.bozza && typeof D.bozza === "object" ? D.bozza : {};
+    const righe = {};
+    (b.righe || []).forEach(r => {
+      const req = {};
+      (r.requisiti || []).forEach(q => { req[q.requisito_id] = { base: q.data_base || "", agg: q.data_agg || "" }; });
+      righe[r.volontario_id] = { note: r.note || "", req };
+    });
+    return { righe, segnalazioni: (b.segnalazioni || []).map(s => ({ testo: s.testo || "" })) };
+  }
+  let B = null;
+
+  function bozzaDaInviare(){
+    const righe = [];
+    Object.entries(B.righe).forEach(([vid, r]) => {
+      const requisiti = Object.entries(r.req)
+        .filter(([, q]) => q.base || q.agg)
+        .map(([rid, q]) => ({ requisito_id: Number(rid), data_base: q.base || null, data_agg: q.agg || null }));
+      const note = (r.note || "").trim();
+      if (requisiti.length || note) righe.push({ volontario_id: vid, note, requisiti });
+    });
+    return { righe, segnalazioni: B.segnalazioni.filter(s => s.testo.trim()).map(s => ({ testo: s.testo.trim() })) };
+  }
+
+  function segnaModifica(){
+    modifiche = true;
+    document.getElementById("stato-bozza").textContent = "Modifiche non salvate";
+  }
+
+  // ---------- disegno ----------
+  function disegna(){
+    const mod = D.modificabile;
+    const statoDi = new Map((D.stato_attuale || []).map(s => [s.v + "|" + s.r, s]));
+    const scad = D.scadenza ? new Date(D.scadenza).toLocaleDateString("it-IT") : "";
+
+    let avviso = "";
+    if (!mod){
+      avviso = `<div class="messaggio msg-ok"><h2>Inviato, grazie!</h2>
+        Inviato il ${esc(dataOraIt(D.inviata_at))}${D.compilatore_nome ? ` da ${esc(D.compilatore_nome)}${D.compilatore_ruolo ? " (" + esc(D.compilatore_ruolo) + ")" : ""}` : ""}.
+        Il Polo Logistico controllerà le date prima di registrarle. Questa pagina ora è in sola lettura.</div>`;
+    }
+
+    const vols = D.volontari.filter(v => !filtro || `${v.cognome} ${v.nome} ${v.gruppo || ""}`.toUpperCase().includes(filtro));
+    app.innerHTML = `
+      <div class="testata">
+        <img src="icons/icon-192.png" alt="">
+        <div>
+          <div class="org">Protezione Civile ANA · 1° Raggruppamento</div>
+          <h1>Aggiornamento corsi e abilitazioni</h1>
+          <div class="riga">Richiesta del Polo Logistico${scad && mod ? ` · da inviare entro il <b>${esc(scad)}</b>` : ""}</div>
+          <span class="sezione">Sezione di ${esc(D.sezione)}</span>
+        </div>
+      </div>
+      ${avviso}
+      ${mod ? `<div class="scheda">
+        <h2>Come si compila</h2>
+        <div class="aiuto">
+          Per ogni volontario vedi la situazione che risulta a noi. Compila solo quello che manca o che è cambiato:
+          <ul>
+            <li><b>Data base</b>: quando il volontario ha fatto il corso completo.</li>
+            <li><b>Data aggiornamento</b>: quando ha fatto l'ultimo corso di aggiornamento (solo dove previsto).</li>
+            <li>Per correzioni o dubbi usa <b>Aggiungi nota</b> sotto il volontario.</li>
+            <li>Volontari mancanti o non più attivi: scrivili in <b>Segnalazioni</b>, in fondo.</li>
+          </ul>
+          Puoi salvare la bozza e riprendere più tardi dallo stesso link. Quando hai finito premi <b>Invia</b>.
+        </div>
+        ${D.note ? `<div class="nota-master">${esc(D.note)}</div>` : ""}
+      </div>` : ""}
+      <input type="search" class="cerca" id="cerca" placeholder="Cerca volontario o gruppo…" value="${esc(filtro)}">
+      <div class="aiuto">${D.volontari.length} volontari attivi${filtro ? ` · ${vols.length} trovati` : ""}</div>
+      <div id="elenco">
+        ${vols.map(v => schedaVolontario(v, statoDi, mod)).join("") || `<div class="scheda aiuto">Nessun volontario trovato.</div>`}
+      </div>
+      <div class="scheda">
+        <h2>Segnalazioni</h2>
+        <p class="aiuto">Volontari che mancano nell'elenco o che non sono più attivi, e qualsiasi altra comunicazione. Non modificano l'elenco: lo legge il Polo Logistico.</p>
+        <div id="segnalazioni">${B.segnalazioni.map((s, i) => `
+          <div class="segn"><textarea rows="2" data-segn="${i}" maxlength="500" ${mod ? "" : "disabled"} placeholder="es. Nominativo mancante: Rossi Mario, gruppo …">${esc(s.testo)}</textarea>
+          ${mod ? `<button type="button" data-togli-segn="${i}" aria-label="Togli">×</button>` : ""}</div>`).join("")
+          || (mod ? "" : `<p class="aiuto">Nessuna segnalazione.</p>`)}</div>
+        ${mod ? `<button type="button" class="b-agg" id="agg-segn">+ Aggiungi segnalazione</button>` : ""}
+      </div>`;
+
+    document.getElementById("barra").style.display = mod ? "" : "none";
+    collega(mod);
+  }
+
+  function schedaVolontario(v, statoDi, mod){
+    const r = B.righe[v.id] || { note:"", req:{} };
+    const modificato = Object.values(r.req).some(q => q.base || q.agg) || r.note;
+    return `
+      <div class="vol ${modificato ? "mod" : ""}" data-vol="${esc(v.id)}">
+        <div class="nome">${esc(v.cognome)} ${esc(v.nome)}</div>
+        <div class="dett">${v.gruppo ? "Gruppo " + esc(v.gruppo) + " · " : ""}${v.eta != null ? esc(v.eta) + " anni · " : ""}CF ····${esc(v.cf4)}</div>
+        ${D.requisiti.map(q => {
+          const s = statoDi.get(v.id + "|" + q.id);
+          const st = s ? s.stato : "MANCANTE";
+          const val = r.req[q.id] || { base:"", agg:"" };
+          const att = s ? [s.base ? "base " + dataIt(s.base) : "", s.agg ? "aggiornamento " + dataIt(s.agg) : "", s.scad ? "scadenza " + dataIt(s.scad) : ""].filter(Boolean).join(" · ") : "";
+          return `
+            <div class="req">
+              <div class="req-t"><span>${esc(q.nome)}</span><span class="chip ${st}">${STATI[st] || st}</span></div>
+              ${att ? `<div class="attuale">Risulta: ${esc(att)}</div>` : ""}
+              <div class="date">
+                <div><label>Data base</label><input type="date" min="1950-01-01" max="${oggi}" data-v="${esc(v.id)}" data-r="${q.id}" data-k="base" value="${esc(val.base)}" ${mod ? "" : "disabled"}></div>
+                ${q.aggiornamento ? `<div><label>Data aggiornamento</label><input type="date" min="1950-01-01" max="${oggi}" data-v="${esc(v.id)}" data-r="${q.id}" data-k="agg" value="${esc(val.agg)}" ${mod ? "" : "disabled"}></div>` : ""}
+              </div>
+            </div>`;
+        }).join("")}
+        ${r.note || !mod
+          ? (r.note ? `<div class="req"><label class="aiuto" style="display:block;margin-bottom:4px;">Nota</label><textarea rows="2" maxlength="500" data-nota="${esc(v.id)}" ${mod ? "" : "disabled"}>${esc(r.note)}</textarea></div>` : "")
+          : `<button type="button" class="b-nota" data-apri-nota="${esc(v.id)}">+ Aggiungi nota</button>`}
+      </div>`;
+  }
+
+  function riga(vid){
+    if (!B.righe[vid]) B.righe[vid] = { note:"", req:{} };
+    return B.righe[vid];
+  }
+
+  function collega(mod){
+    const cerca = document.getElementById("cerca");
+    let t = null;
+    cerca.addEventListener("input", () => {
+      clearTimeout(t);
+      t = setTimeout(() => { filtro = cerca.value.trim().toUpperCase(); disegna(); document.getElementById("cerca").focus(); }, 250);
+    });
+    if (!mod) return;
+    app.querySelectorAll("input[type=date]").forEach(inp => inp.addEventListener("change", () => {
+      if (inp.value && (inp.value > oggi || inp.value < "1950-01-01")){
+        alert("La data non può essere nel futuro né prima del 1950.");
+        inp.value = "";
+      }
+      const r = riga(inp.dataset.v);
+      if (!r.req[inp.dataset.r]) r.req[inp.dataset.r] = { base:"", agg:"" };
+      r.req[inp.dataset.r][inp.dataset.k] = inp.value;
+      inp.closest(".vol").classList.add("mod");
+      segnaModifica();
+    }));
+    app.querySelectorAll("[data-apri-nota]").forEach(b => b.addEventListener("click", () => {
+      const vid = b.dataset.apriNota;
+      const box = document.createElement("div");
+      box.className = "req";
+      box.innerHTML = `<label class="aiuto" style="display:block;margin-bottom:4px;">Nota</label><textarea rows="2" maxlength="500" data-nota="${esc(vid)}" placeholder="es. il corso base l'ha fatto nel 2019 a Torino"></textarea>`;
+      b.replaceWith(box);
+      collegaNota(box.querySelector("textarea"));
+      box.querySelector("textarea").focus();
+    }));
+    app.querySelectorAll("[data-nota]").forEach(collegaNota);
+    app.querySelectorAll("[data-segn]").forEach(ta => ta.addEventListener("input", () => {
+      B.segnalazioni[Number(ta.dataset.segn)].testo = ta.value;
+      segnaModifica();
+    }));
+    app.querySelectorAll("[data-togli-segn]").forEach(b => b.addEventListener("click", () => {
+      B.segnalazioni.splice(Number(b.dataset.togliSegn), 1);
+      segnaModifica();
+      disegna();
+    }));
+    const agg = document.getElementById("agg-segn");
+    if (agg) agg.addEventListener("click", () => {
+      B.segnalazioni.push({ testo:"" });
+      disegna();
+      const tutte = app.querySelectorAll("[data-segn]");
+      if (tutte.length) tutte[tutte.length - 1].focus();
+    });
+  }
+
+  function collegaNota(ta){
+    ta.addEventListener("input", () => {
+      riga(ta.dataset.nota).note = ta.value;
+      ta.closest(".vol").classList.add("mod");
+      segnaModifica();
+    });
+  }
+
+  // ---------- azioni ----------
+  async function salva(silenzioso){
+    const btn = document.getElementById("btn-salva");
+    btn.disabled = true;
+    try {
+      const at = await chiama("salva", { bozza: bozzaDaInviare() });
+      modifiche = false;
+      document.getElementById("stato-bozza").textContent = "Bozza salvata alle " + new Date(at).toLocaleTimeString("it-IT", { hour:"2-digit", minute:"2-digit" });
+      return true;
+    } catch(e){
+      if (!silenzioso) alert(testoErrore(e));
+      return false;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function apriInvio(){
+    const b = bozzaDaInviare();
+    const nDate = b.righe.reduce((n, r) => n + r.requisiti.reduce((m, q) => m + (q.data_base ? 1 : 0) + (q.data_agg ? 1 : 0), 0), 0);
+    const velo = document.createElement("div");
+    velo.className = "velo";
+    velo.innerHTML = `
+      <div class="finestra" role="dialog" aria-modal="true">
+        <h2>Invia al Polo Logistico</h2>
+        <p class="aiuto">Stai inviando <b>${nDate}</b> date, <b>${b.righe.filter(r => r.note).length}</b> note e <b>${b.segnalazioni.length}</b> segnalazioni.
+          ${nDate + b.segnalazioni.length === 0 ? "<br>Non hai indicato nulla: confermi che per la Sezione è tutto in regola?" : ""}
+          Dopo l'invio non potrai più modificare.</p>
+        <label for="inv-nome">Nome e cognome di chi ha compilato *</label>
+        <input id="inv-nome" maxlength="100" autocomplete="name">
+        <label for="inv-ruolo">Ruolo nella Sezione</label>
+        <input id="inv-ruolo" maxlength="100" placeholder="es. Coordinatore PC di Sezione">
+        <div class="azioni">
+          <button type="button" class="grande secondario" id="inv-annulla">Annulla</button>
+          <button type="button" class="grande primario" id="inv-conferma">Invia</button>
+        </div>
+      </div>`;
+    document.body.appendChild(velo);
+    velo.querySelector("#inv-nome").focus();
+    velo.querySelector("#inv-annulla").addEventListener("click", () => velo.remove());
+    velo.querySelector("#inv-conferma").addEventListener("click", async (ev) => {
+      const nome = velo.querySelector("#inv-nome").value.trim();
+      if (!nome){ alert(ERRORI.NOME_MANCANTE); return; }
+      const btn = ev.currentTarget;
+      btn.disabled = true;
+      btn.textContent = "Invio…";
+      try {
+        await chiama("invia", { bozza: b, nome, ruolo: velo.querySelector("#inv-ruolo").value.trim() });
+        modifiche = false;
+        velo.remove();
+        await carica();
+        window.scrollTo(0, 0);
+      } catch(e){
+        btn.disabled = false;
+        btn.textContent = "Invia";
+        alert(testoErrore(e));
+      }
+    });
+  }
+
+  async function carica(){
+    try {
+      D = await chiama("apri");
+    } catch(e){
+      errore("Impossibile aprire la richiesta", testoErrore(e));
+      return;
+    }
+    B = bozzaIniziale();
+    document.getElementById("stato-bozza").textContent = D.bozza_at && D.modificabile ? "Bozza salvata il " + dataOraIt(D.bozza_at) : "";
+    disegna();
+  }
+
+  document.getElementById("btn-salva").addEventListener("click", () => salva(false));
+  document.getElementById("btn-invia").addEventListener("click", apriInvio);
+  window.addEventListener("beforeunload", e => { if (modifiche){ e.preventDefault(); e.returnValue = ""; } });
+
+  if (!/^[0-9a-f]{64}$/.test(token)) errore("Link non valido", ERRORI.TOKEN_NON_VALIDO);
+  else carica();
+})();
+</script>
+</body>
+</html>
