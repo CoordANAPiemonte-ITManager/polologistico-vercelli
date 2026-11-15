@@ -149,8 +149,10 @@ function volsHtmlRigaRichiesta(r){
     c.GESTITA ? `${c.GESTITA} segnalazioni gestite` : "",
   ].filter(Boolean).join(" · ") || (r.stato === "CHIUSA" && r.inviata_at ? "nessuna modifica" : "—");
   const az = [];
+  // il link resta recuperabile anche dopo l'invio (la pagina della Sezione è in sola lettura); non se revocata
+  if (r.canale === "LINK" && r.stato !== "REVOCATA") az.push(["link", "Copia link"], ["apri", "Apri pagina"]);
   if (r.stato === "APERTA"){
-    if (r.canale === "LINK") az.push(["link", "Copia link"], ["mail", "Invia mail"]);
+    if (r.canale === "LINK") az.push(["mail", "Invia mail"]);
     else az.push(["genera", "Genera Excel"], ["carica", "Carica Excel compilato"]);
     az.push(["proroga", "Proroga"], ["revoca", "Revoca"]);
   }
@@ -172,8 +174,15 @@ function volsHtmlRigaRichiesta(r){
 }
 
 async function volsAzioneRichiesta(az, ric, btn){
-  if (az === "link" || az === "mail"){
+  if (az === "link" || az === "mail" || az === "apri"){
+    const finestra = az === "apri" ? window.open("", "_blank") : null; // aperta subito, così il browser non la blocca
     const { data, error } = await sb.rpc("vol_richiesta_link", { p_id: ric.id });
+    if (az === "apri"){
+      if (error || !data?.[0]?.token){ if (finestra) finestra.close(); alert("Errore: " + (error?.message || "link non disponibile")); return; }
+      const link = volsLink(data[0].token);
+      if (finestra) finestra.location.href = link; else window.open(link, "_blank");
+      return;
+    }
     if (error || !data?.[0]?.token){ alert("Errore: " + (error?.message || "link non disponibile")); return; }
     const link = volsLink(data[0].token);
     if (az === "link"){
