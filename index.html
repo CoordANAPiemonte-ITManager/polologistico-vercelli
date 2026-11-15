@@ -14,6 +14,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <script src="https://unpkg.com/@supabase/supabase-js@2.117.2"></script>
 <script src="esercitazioni-excel.js"></script>
+<script src="volontari.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -121,7 +122,8 @@ const MENU = [
   { route: "home",         label: "Home",         icon: "ti-home",        permesso: "home" },
   { route: "automezzi",    label: "Automezzi",     icon: "ti-truck",       permesso: "automezzi" },
   { route: "tlc",          label: "TLC / Radio",   icon: "ti-radio",       permesso: "tlc" },
-  { route: "formazione",   label: "Formazione",    icon: "ti-school",      permesso: "formazione" },
+  { route: "formazione",   label: "Scuola di Formazione", icon: "ti-school", permesso: "formazione" },
+  { route: "volontari",    label: "Volontari",     icon: "ti-users",       permesso: "volontari" },
   { route: "firma",        label: "Firma Documenti", icon: "ti-signature", permesso: "firma_documenti" },
   { route: "editorpdf",    label: "Editor PDF",    icon: "ti-file-pencil", permesso: "editor_pdf" },
   { route: "libromatricola", label: "Libro Matricola", icon: "ti-book",    permesso: "libro_matricola" },
@@ -477,7 +479,8 @@ const PAGE_TITLES = {
   home: ["Home", "Situazione generale e alert"],
   automezzi: ["Automezzi", "Flotta, revisioni e movimentazioni"],
   tlc: ["TLC / Radio", "Apparati e movimentazioni"],
-  formazione: ["Formazione", "Corsi e volontari"],
+  formazione: ["Scuola di Formazione", "Corsi e volontari"],
+  volontari: ["Volontari", "Anagrafica 1° RGPT, corsi e abilitazioni"],
   firma: ["Firma Documenti", "Carica PDF, apponi la firma e scarica"],
   editorpdf: ["Editor PDF", "Modelli, compilazione e firme con link"],
   libromatricola: ["Libro Matricola", "Mezzi assicurati e polizze"],
@@ -519,6 +522,7 @@ function router(){
   else if (route === "automezzi") renderAutomezzi();
   else if (route === "tlc") renderTlc();
   else if (route === "formazione") renderFormazione();
+  else if (route === "volontari") renderVolontari();
   else if (route === "firma") renderFirmaDocumenti();
   else if (route === "editorpdf") renderEditorPdf();
   else if (route === "libromatricola") renderLibroMatricola();
@@ -2750,7 +2754,8 @@ const PAGINE_PERMESSO = [
   { key:"home", label:"Home" },
   { key:"automezzi", label:"Automezzi" },
   { key:"tlc", label:"TLC / Radio", livelli:true },
-  { key:"formazione", label:"Formazione" },
+  { key:"formazione", label:"Scuola di Formazione" },
+  { key:"volontari", label:"Volontari", livelli:true },
   { key:"firma_documenti", label:"Firma Documenti" },
   { key:"editor_pdf", label:"Editor PDF", livelli:true },
   { key:"libro_matricola", label:"Libro Matricola" },
@@ -2796,7 +2801,7 @@ async function renderFormazione(){
       </button>
       <input type="file" id="input-import-zip-attestati" accept=".zip" style="display:none;">
       <button class="btn-add" id="form-btn-verifica-mancanti" style="background:var(--rosso);">⚠️ Verifica attestati mancanti</button>
-      <button class="btn-add" id="form-btn-report" style="background:var(--blu-900);">📊 Report formazione</button>
+      <button class="btn-add" id="form-btn-report" style="background:var(--blu-900);">📊 Report Scuola di Formazione</button>
       <button class="btn-add" id="form-btn-nuova">+ Nuova edizione corso</button>
     </div>
     <div class="results-count" id="form-results-count"></div>
@@ -2824,7 +2829,7 @@ async function apriModalReportFormazione(){
   overlay.innerHTML = `
     <div class="modal-box modal-box-lg">
       <div class="modal-head">
-        <h3>📊 Report formazione</h3>
+        <h3>📊 Report Scuola di Formazione</h3>
         <button class="modal-close" onclick="chiudiModal()">✕</button>
       </div>
       <div class="modal-body" id="report-formazione-body"><div class="loading-spin">Calcolo in corso…</div></div>
@@ -2945,7 +2950,7 @@ async function caricaReportFormazione(){
     const wb = XLSX.utils.book_new();
 
     const wsRiepilogo = XLSX.utils.aoa_to_sheet([
-      ["Report Formazione", new Date().toLocaleDateString("it-IT")],
+      ["Report Scuola di Formazione", new Date().toLocaleDateString("it-IT")],
       [],
       ["Volontari censiti", totVolontari],
       ["Volontari in formazione", volontariConIscrizioni.size],
@@ -10811,7 +10816,9 @@ async function salvaUtente(id, utenti){
   const nome = document.querySelector(`[data-field="nome"][data-id="${id}"]`).value.trim();
   const ruolo = document.querySelector(`[data-field="ruolo"][data-id="${id}"]`).value;
   const attivo = document.querySelector(`[data-field="attivo"][data-id="${id}"]`).checked;
-  const permessi = {};
+  // parto dai permessi attuali per non perdere chiavi senza casella (es. volontari_sezioni)
+  const utenteAttuale = (utenti || []).find(x => x.id === id);
+  const permessi = { ...((utenteAttuale && utenteAttuale.permessi) || {}) };
   PAGINE_PERMESSO.forEach(p => {
     if (p.livelli){
       const valore = document.querySelector(`[data-perm-livello="${p.key}"][data-id="${id}"]`).value;
@@ -10842,9 +10849,10 @@ const LABEL_TABELLE_LOG = {
   automezzi: "Automezzi", manutenzioni_automezzi: "Manutenzioni automezzi", movimenti_automezzi: "Movimenti automezzi",
   documenti_automezzi: "Documenti automezzi", tlc_apparati: "Apparati TLC", movimentazioni_tlc: "Movimentazioni TLC",
   movimentazioni_tlc_apparati: "Dettaglio movimentazioni TLC", tlc_categorie: "Categorie TLC",
-  volontari_formazione: "Volontari Formazione", edizioni_corso: "Edizioni corso", catalogo_corsi: "Catalogo corsi",
+  volontari_formazione: "Volontari Scuola di Formazione", edizioni_corso: "Edizioni corso", catalogo_corsi: "Catalogo corsi",
   iscrizioni_corsi: "Iscrizioni corsi", documenti_volontario: "Documenti volontario", documenti_catalogo_corsi: "Documenti catalogo",
   firme_salvate: "Firme salvate", app_users: "Utenti app",
+  vol_requisiti: "Volontari – corsi e abilitazioni", vol_requisiti_volontario: "Volontari – spunte",
   pdf_modelli: "Modelli PDF", pdf_documenti: "Documenti PDF"
 };
 const LABEL_OPERAZIONE_LOG = { INSERT:"Creazione", UPDATE:"Modifica", DELETE:"Eliminazione" };

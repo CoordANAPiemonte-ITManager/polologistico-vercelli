@@ -11,7 +11,8 @@
 
 const SIDEBAR = [
   ["home","ti-home","Home"],["automezzi","ti-truck","Automezzi"],["tlc","ti-radio","TLC / Radio"],
-  ["formazione","ti-school","Formazione"],["firma","ti-signature","Firma Documenti"],
+  ["formazione","ti-school","Scuola di Formazione"],["volontari","ti-users","Volontari"],
+  ["firma","ti-signature","Firma Documenti"],
   ["editorpdf","ti-file-pencil","Editor PDF"],["libromatricola","ti-book","Libro Matricola"],
   ["esercitazioni","ti-flag","Esercitazioni"],["emergenze","ti-alert-triangle","Emergenze"],
   ["utenti","ti-users","Gestione Utenti"],["impostazioni","ti-settings","Impostazioni"]
@@ -186,13 +187,13 @@ const PAGINE = [
   ]
 },
 {
-  id:"formazione", titolo:"Formazione", icona:"ti-school",
+  id:"formazione", titolo:"Scuola di Formazione", icona:"ti-school",
   perche:"Corsi, edizioni, volontari iscritti e attestati, collegati al Drive della formazione.",
-  chi:"Chi ha il permesso Formazione.",
+  chi:"Chi ha il permesso Scuola di Formazione.",
   video:"", audio:"",
-  intro:"Ora la Formazione. Qui gestiamo i corsi, cioè le varie edizioni, chi le ha frequentate e gli attestati.",
-  schermo: () => app("formazione","Formazione", `
-    <div class="m-barra">${cerca("Cerca per nome edizione…","cerca")}<span class="m-sp"></span>${btn("🔍 Cerca volontari","volontari","grigio")}${btn("📊 Report formazione","report","grigio")}${btn("⚠️ Verifica attestati mancanti","mancanti","rosso")}${btn("+ Nuova edizione corso","nuova")}</div>
+  intro:"Ora la Scuola di Formazione. Qui gestiamo i corsi, cioè le varie edizioni, chi le ha frequentate e gli attestati.",
+  schermo: () => app("formazione","Scuola di Formazione", `
+    <div class="m-barra">${cerca("Cerca per nome edizione…","cerca")}<span class="m-sp"></span>${btn("🔍 Cerca volontari","volontari","grigio")}${btn("📊 Report Scuola di Formazione","report","grigio")}${btn("⚠️ Verifica attestati mancanti","mancanti","rosso")}${btn("+ Nuova edizione corso","nuova")}</div>
     ${tab([["Edizione","Corso","Data","Iscritti","Attestati"],["Base PC – Vercelli 2026","BASE","14/03/2026","32","30"],["Motoseghe – Asti","MOT","02/05/2026","18","18"],["Radio – Torino","TLC","21/09/2026","25","12"]],"elenco")}
     <div class="m-modale">${tabs(["Dati","Volontari","Documenti"],"schede")}
       <div class="m-azioni">${btn("+ Aggiungi volontario","","grigio")}${btn("📦 Import massivo attestati","zip","scuro")}${btn("📥 Scarica Excel","","grigio")}</div></div>`),
@@ -209,8 +210,39 @@ const PAGINE = [
      v:"E non devi preoccuparti del Drive: ogni attestato che carichi viene copiato da solo nella cartella attestati dell'edizione, sul Drive condiviso della formazione."},
     {t:"Cosa manca", d:"Verifica attestati mancanti ti mostra chi ha frequentato ma non ha ancora l'attestato.", h:"mancanti",
      v:"Con Verifica attestati mancanti vedi subito chi ha frequentato ma non ha ancora l'attestato caricato."},
-    {t:"Volontari e report", d:"Cerca volontari apre l'anagrafica con lo storico dei corsi di ognuno. Report formazione riassume tutto ed esporta in Excel.", h:"volontari",
-     v:"Infine, con Cerca volontari apri la scheda di una persona, con tutti i corsi che ha fatto. E il Report formazione ti dà il quadro generale, anche in Excel."}
+    {t:"Volontari e report", d:"Cerca volontari apre l'anagrafica con lo storico dei corsi di ognuno. Report Scuola di Formazione riassume tutto ed esporta in Excel.", h:"volontari",
+     v:"Infine, con Cerca volontari apri la scheda di una persona, con tutti i corsi che ha fatto. E il Report della Scuola di Formazione ti dà il quadro generale, anche in Excel."}
+  ]
+},
+{
+  id:"volontari", titolo:"Volontari", icona:"ti-users",
+  perche:"L'anagrafica dei volontari del 1° Raggruppamento, presa dal PIA, con i corsi e le abilitazioni di ognuno.",
+  chi:"Per ora solo gli amministratori.",
+  video:"", audio:"",
+  intro:"Passiamo ai Volontari. Qui c'è l'elenco dei volontari del primo Raggruppamento, cioè Piemonte, Liguria e Valle d'Aosta, preso dal PIA. E per ognuno vediamo a colpo d'occhio quali corsi e abilitazioni ha.",
+  schermo: () => app("volontari","Volontari", `
+    <div class="m-barra" data-h="ambito">${btn("CAP","","grigio")}${btn("CAL","","grigio")}${btn("1° RGPT","")}</div>
+    <div class="m-barra" data-h="filtri">${cerca("Cerca per nome o codice fiscale…")}${sel("Regione: Tutte")}${sel("Sezione: Tutte")}${sel("Tutti i gruppi")}${sel("Attivo")}${btn("Corsi e abilitazioni","","grigio")}${btn("Azzera filtri","","grigio")}</div>
+    <div class="m-barra">${tabs(["Elenco","Riepilogo"],"riepilogo")}<span class="m-sp"></span>${btn("Esporta Excel","excel","grigio")}${btn("Importa da PIA","importa")}${btn("⚙ Corsi e abilitazioni","requisiti","scuro")}</div>
+    ${tab([["Cognome","Nome","Sezione","Età","Stato","Base PC","Motosega","Patente C"],["ROSSI","MARIO","VERCELLI","54",tag("Attivo","v"),tag("🎓","v"),tag("✓","v"),""],["DE LUCA","ANNA MARIA","GENOVA","38",tag("Attivo","v"),tag("✓","v"),tag("✓","g"),tag("✓","v")],["BIANCHI","LUIGI","AOSTA","61",tag("Non in PIA","g"),"","",""]],"elenco")}
+    <div class="m-riga" data-h="spunte">${tag("✓","v")} valido · ${tag("✓","g")} scaduto · ${tag("🎓","v")} dalla Scuola di Formazione</div>`),
+  passi:[
+    {t:"Scegli l'ambito", d:"CAP = solo Piemonte. CAL = solo Liguria. 1° RGPT = Piemonte, Liguria e Valle d'Aosta (è quello di partenza).", h:"ambito",
+     v:"In alto scegli l'ambito. CAP mostra solo il Piemonte, CAL solo la Liguria, e primo Raggruppamento le tre regioni insieme, che è quello di partenza."},
+    {t:"Trova chi ti serve", d:"Filtra per Regione, Sezione, Gruppo, età, stato e «da verificare», o cerca per nome e codice fiscale. Con Corsi e abilitazioni cerchi chi ha, o non ha, un certo corso. Azzera filtri riparte da capo.", h:"filtri",
+     v:"Poi restringi l'elenco come ti serve: per Sezione, per gruppo, per età, oppure cerchi direttamente un nome o un codice fiscale. Col pulsante Corsi e abilitazioni puoi chiedere, per esempio, tutti quelli che non hanno ancora il corso base. E se ti perdi, Azzera filtri e si riparte."},
+    {t:"L'elenco", d:"Nome, Sezione, Gruppo ed età arrivano dal PIA e qui non si modificano. Clicca un'intestazione per ordinare. Sopra vedi quanti volontari sono visualizzati sul totale.", h:"elenco",
+     v:"I dati anagrafici arrivano dal PIA, quindi qui si leggono soltanto: se c'è un errore va corretto sul PIA. Clicchi sull'intestazione di una colonna per ordinare, per esempio per età o per Sezione. E sopra la tabella vedi quanti volontari stai guardando, sul totale."},
+    {t:"Leggere le spunte", d:"Verde = valido. Arancione = scaduto. Cappello da laureato = preso in automatico dagli attestati della Scuola di Formazione: clicca per aprire l'attestato.", h:"spunte",
+     v:"Ogni colonna in fondo è un corso o un'abilitazione. Verde vuol dire che è valido, arancione che è scaduto. Se vedi il cappello da laureato, la spunta l'ha messa l'app da sola, perché c'è l'attestato nella Scuola di Formazione: cliccandoci sopra lo apri."},
+    {t:"Spuntare a mano", d:"Clicca una cella: metti o togli la spunta, con data di conseguimento e note, poi Salva. Le spunte della Scuola non si modificano da qui.", h:"spunte", solo:"completo",
+     v:"Per i corsi fatti altrove, clicchi sulla cella e metti la spunta a mano, con la data e, se serve, una nota. Le spunte col cappello invece non si toccano: si aggiornano da sole dalla Scuola di Formazione."},
+    {t:"Riepilogo e Excel", d:"Riepilogo: per ogni Sezione la percentuale di volontari in regola su ogni corso, con i totali per Regione. Esporta Excel scarica esattamente l'elenco che stai vedendo.", h:"riepilogo",
+     v:"Nella scheda Riepilogo vedi, Sezione per Sezione, quanti volontari sono in regola su ogni corso, in percentuale, con i totali per regione. E Esporta Excel ti scarica proprio l'elenco che hai sullo schermo, con i filtri che hai messo."},
+    {t:"Importare dal PIA", d:"Nel PIA apri Volontari ANA > Schede Volontari, imposta 1Rgpt, NON Obsoleti e Righe = TUTTE, premi Filtra e clicca il preferito Copia da PIA. Poi qui: Importa da PIA, incolla, controlla l'anteprima e conferma.", h:"importa", solo:"completo",
+     v:"Per aggiornare l'elenco si passa dal PIA. Nella finestra Importa da PIA trovi il pulsante Copia da PIA: lo trascini una volta nella barra dei preferiti. Poi nel PIA apri le schede volontari, filtri il primo Raggruppamento con tutte le righe, clicchi il preferito, torni qui e incolli. Prima di salvare vedi un'anteprima: chi è nuovo, chi è cambiato, e chi non c'è più. Chi non c'è più non viene cancellato: diventa Non in PIA."},
+    {t:"Corsi e abilitazioni", d:"Con l'ingranaggio decidi quali colonne mostrare: aggiungi, rinomina, riordina con le frecce, attiva o disattiva. Collegando un corso della Scuola di Formazione, le spunte arrivano da sole.", h:"requisiti", solo:"completo",
+     v:"Infine, con l'ingranaggio decidi quali corsi e abilitazioni seguire. Li aggiungi, li metti in ordine con le frecce, e puoi dire quanti mesi valgono. Se colleghi un corso della Scuola di Formazione, chi ha l'attestato risulta spuntato in automatico."}
   ]
 },
 {
@@ -344,9 +376,9 @@ const PAGINE = [
   video:"", audio:"",
   intro:"Questa pagina riguarda solo l'amministratore. È dove si decide chi può entrare, e cosa può fare.",
   schermo: () => app("utenti","Gestione Utenti", `
-    ${tab([["Utente","Ruolo","Permessi","Attivo"],["Mario Rossi","standard","TLC base · Formazione completo","Sì"],["Laura Bianchi","segreteria","Esercitazioni completo","Sì"],["Paolo Verdi","specialita","TLC completo","No"]],"elenco")}
+    ${tab([["Utente","Ruolo","Permessi","Attivo"],["Mario Rossi","standard","TLC base · Scuola di Formazione completo","Sì"],["Laura Bianchi","segreteria","Esercitazioni completo","Sì"],["Paolo Verdi","specialita","TLC completo","No"]],"elenco")}
     <div class="m-modale" data-h="permessi"><div class="m-box-t">Permessi di Mario Rossi</div>
-      <div class="m-campi"><span>Automezzi <b>—</b></span><span>TLC <b>base</b></span><span>Formazione <b>completo</b></span><span>Editor PDF <b>base</b></span></div>
+      <div class="m-campi"><span>Automezzi <b>—</b></span><span>TLC <b>base</b></span><span>Scuola di Formazione <b>completo</b></span><span>Volontari <b>—</b></span><span>Editor PDF <b>base</b></span></div>
       <div class="m-azioni">${btn("Resetta password","reset","grigio")}${btn("Salva")}</div></div>
     <div class="m-azioni">${btn("📋 Log accessi","log","scuro")}</div>`),
   passi:[

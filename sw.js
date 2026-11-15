@@ -3,7 +3,7 @@
 // l'app non funziona offline: senza rete le navigazioni ricevono offline.html.
 // Cacheiamo solo lo shell statico dello stesso dominio.
 
-const CACHE_NAME = "polo-logistico-shell-v4";
+const CACHE_NAME = "polo-logistico-shell-v5";
 const PAGINA_OFFLINE = "./offline.html";
 const PREFISSO_GUIDA = new URL("./guida/", self.location).pathname;
 const SHELL_FILES = [
